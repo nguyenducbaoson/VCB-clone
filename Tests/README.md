@@ -1,109 +1,133 @@
 # Tests
 
-Unit test cho `VcbPortalApi`. Kiểm tra **code và quy tắc nghiệp vụ có đúng không** —
-không DB, không mạng, không file, không đồng hồ hệ thống.
+Unit test cho `VcbPortalApi` — logic nghiệp vụ, service, và controller.
+Không mạng, không Oracle, không cần môi trường nào đang chạy.
 
 ```bash
 dotnet test
 ```
 
-Không cần cấu hình gì, không cần môi trường nào đang chạy. Không có test nào bị skip —
-thấy `Skipped` là dấu hiệu có gì đó sai chỗ.
+76 test, không test nào bị skip. Thấy `Skipped` là dấu hiệu có gì đó sai chỗ.
 
 ## Cấu trúc
 
 Thư mục test soi gương thư mục nguồn.
 
 ```
-VcbPortalApi/                          Tests/
-├── Services/MpAppUserStatusService.cs  ├── Services/MpAppUserStatusTests.cs
-└── Helpers/HMAC256.cs                  └── Helpers/HMAC256Tests.cs
+VcbPortalApi/                               Tests/
+├── Controllers/                            ├── Controllers/
+│   ├── MerchantSsoController.cs            │   ├── MerchantSsoControllerTests.cs
+│   └── Mobile/                             │   └── Mobile/
+│       └── MobilePartnerController.cs      │       └── MobilePartnerControllerTests.cs
+├── Services/                               ├── Services/
+│   └── MpAppUserStatusService.cs           │   ├── MpAppUserStatusTests.cs
+│                                           │   └── MpAppUserStatusServiceTests.cs
+└── Helpers/HMAC256.cs                      ├── Helpers/HMAC256Tests.cs
+                                            └── TestSupport/    ← đồ dùng chung
 ```
 
 | | Quy ước | Ví dụ |
 |---|---|---|
 | File | `<TênClass>Tests.cs` | `MpAppUserStatusTests.cs` |
-| Namespace | `Tests.<thư mục>` | `Tests.Services` |
-| Hàm test | `<Hàm>_<TìnhHuống>_<KếtQuảMongĐợi>` | `HmacSha256_ReturnsUppercaseHex` |
+| Namespace | `Tests.<thư mục>` | `Tests.Controllers.Mobile` |
+| Hàm test | `<Hàm>_<TìnhHuống>_<KếtQuảMongĐợi>` | `Login_BodyNull_TraVe400VaKhongGoiService` |
 
 Tên hàm dài không sao. Khi fail, tên hiện trong log chính là câu mô tả lỗi.
 
-## Cái gì được vào đây
+## Ba mẫu, chọn theo thứ tự ưu tiên
 
-Chỉ hàm **thuần**: cùng đầu vào luôn cho cùng đầu ra, không đụng gì bên ngoài.
+### Mẫu 1 — hàm thuần · rẻ nhất, ưu tiên
+[`Services/MpAppUserStatusTests.cs`](Services/MpAppUserStatusTests.cs)
 
-Phép thử nhanh: *mở laptop trên máy bay, tắt wifi, chạy được không?*
+Hàm `static`, vào ra thuần tuý, không đụng gì bên ngoài. `[Theory]` + `[InlineData]`
+chạy một thân test với nhiều bộ dữ liệu — 24 dòng dữ liệu khớp 1-1 với bảng đặc tả
+nghiệp vụ.
 
-Bảy thứ khiến một hàm không unit test được:
+Cố gắng tách logic quyết định ra hàm `static` để test được kiểu này.
 
-| Tránh | Ví dụ trong project |
+### Mẫu 2 — service có đụng DbContext
+[`Services/MpAppUserStatusServiceTests.cs`](Services/MpAppUserStatusServiceTests.cs)
+
+Dùng [`TestSupport/TestDb.cs`](TestSupport/TestDb.cs): EF Core InMemory, mỗi test một
+database riêng theo `Guid` nên chạy song song không giẫm chân nhau.
+
+Ba bước Arrange / Act / Assert, Act chỉ gọi **một** hàm.
+
+### Mẫu 3 — controller · ca khó nhất, phổ biến nhất ở project này
+[`Controllers/Mobile/MobilePartnerControllerTests.cs`](Controllers/Mobile/MobilePartnerControllerTests.cs)
+
+Gọi thẳng action như gọi hàm thường. Không dựng web server, không mở cổng.
+
+[`TestSupport/MobileTestKit.cs`](TestSupport/MobileTestKit.cs) gom bốn chỗ khó:
+
+| Vướng | Cách gỡ |
 |---|---|
-| DB | `context.MpSessions.FirstOrDefaultAsync` |
-| Mạng | `MpSsoClient` gọi VCB SSO |
-| File | |
-| `DateTime.Now` | `MpSsoAuthService.WriteSsoLogAsync` |
-| `Guid.NewGuid()` | `MpSsoClient` sinh `msgID` |
-| Biến môi trường | |
-| Static có thể thay đổi | `AppSettings.SignatureSecretUat` |
+| `CurrentUserName` là `protected`, không gán được | gắn claim vào `HttpContext.User`, key lấy từ `AppSettings.ClaimUserName` |
+| `TryGetBearerTokenExpiresUtc` đọc header | gắn `Authorization: Bearer <jwt>` |
+| `AppSettings.SigningCredentials` là `static` | gán trong Arrange, quên là `CreateToken` nổ |
+| `MobileHelper` là `static`, không fake được | điều khiển bằng cách seed dữ liệu vào `MerchantContext` |
 
-Project **không cài** EF InMemory, driver DB, thư viện mock hay `HttpClient`. Cần bất
-kỳ thứ nào trong số đó nghĩa là thứ đang test không còn là một đơn vị thuần.
+Ba hàm `AssertLoi` / `AssertUnauthorized` / `DocClaimTuToken` là chỗ **duy nhất** biết
+khuôn response. Khuôn đổi thì sửa ba hàm đó, các test giữ nguyên.
 
-## Viết code sao cho unit test được
+[`Controllers/MerchantSsoControllerTests.cs`](Controllers/MerchantSsoControllerTests.cs)
+là bản nhẹ hơn: controller có tách service, chỉ cần một fake
+([`TestSupport/FakeMpSsoAuthService.cs`](TestSupport/FakeMpSsoAuthService.cs)) chứ
+không cần DbContext.
 
-Đây là phần quan trọng nhất, vì phần lớn logic hiện tại **chưa** ở dạng test được.
+## Thêm test cho một API mới
 
-Tách **logic quyết định** khỏi **điều phối**:
+1. Tạo file trong thư mục soi gương thư mục nguồn, tên `<TênClass>Tests.cs`.
+2. **Liệt kê nhánh** — mỗi lệnh `return` sớm trong action là một test.
+3. Một hàm dựng **bối cảnh hợp lệ hoàn toàn** (như `BoiCanhHopLeRoleMid`), rồi mỗi
+   test chỉ làm hỏng **đúng một thứ**. Nhờ vậy fail thì chắc chắn do nhánh đó, không
+   phải do quên seed dữ liệu chỗ khác.
+4. Đường thành công để cuối, kiểm tra kỹ nhất.
+5. `dotnet test` xanh rồi mới commit.
 
-```csharp
-// ĐIỀU PHỐI — đọc ghi DB, gọi API, ghi log. Không unit test được.
-public async Task RefreshStatusAsync(string username, CancellationToken ct)
-{
-    var rows = await _db.Set<MpAppPartnerCardReg>()...
-    user.PhoneposStatus = ResolveForPartner(rows, MpPartner.PhonePos);   // ← gọi hàm thuần
-    await _db.SaveChangesAsync(ct);
-}
-
-// LOGIC QUYẾT ĐỊNH — static, vào ra thuần tuý. Unit test được.
-public static decimal? ResolveForPartner(
-    IEnumerable<(string? Partner, string? Status)> rows, string partner) { ... }
-```
-
-Áp dụng dần với **code mới**, đừng đi refactor loạt controller cũ. Viết endpoint mới
-thì tách khối quyết định ra `static` ngay từ đầu — lúc đó gần như không tốn công thêm.
-
-Ví dụ với `MobilePartnerController.IssueSsoToken`: bảy trong mười ba nhánh chỉ dựa
-trên giá trị đã có trong tay (role, bid/mid của user, mid/tid client gửi lên). Rút
-chúng ra một hàm `static` khoảng 20 dòng là unit test được ngay, không cần DB.
+Mẹo: viết nhánh lỗi trước. Nhánh thành công thường đã được bấm thử tay lúc code,
+còn nhánh lỗi thì hiếm khi ai thử.
 
 ## Kiểm tra test có thật sự bắt được lỗi
 
 Test xanh chưa chắc có ích. Cách rẻ nhất: **cố tình phá code** rồi xem có đỏ đúng chỗ.
 
-Làm việc này với `MpAppUserStatusTests` và nó phát hiện một chuyện đáng chú ý:
+Đã làm hai lần, và cả hai đều đáng ghi lại:
 
-- Đảo nhánh `2..6` với nhánh `toàn 7` → **không test nào đỏ**. Hai điều kiện đó loại
-  trừ nhau, đảo cũng không đổi hành vi.
-- Đảo nhánh `toàn 7` với nhánh `toàn 0/7` → **2 test đỏ** (`"7"` và `"7,7"`). Tập chỉ
-  có 7 thoả cả hai; đảo lại thì user đã hủy bị tính thành "Đã đăng ký".
+**Sửa claim `mid` của role MID từ `mId!.Value` (DB) thành `form.Mid!.Value` (client gửi)**
+→ đúng một test đỏ (`IssueSsoToken_RoleMid_ClaimMidLayTuDbKhongLayTuForm`), 75 test kia
+vẫn xanh. Đây là lỗi nâng quyền: user MID tự đặt mid nào cũng được. Test tay không bao
+giờ phát hiện vì client thật không gửi mid rác.
 
-Comment trong `ResolveStatus` trước đây ghi thứ tự bắt buộc là để `{2,7}` ra "Kích
-hoạt" — không chính xác. Ràng buộc thật nằm ở hai nhánh cuối. Đã sửa comment.
+**Đảo hai nhánh trong `ResolveStatus`:**
+- Đảo `2..6` với `toàn 7` → **không test nào đỏ**. Hai điều kiện đó loại trừ nhau, đảo
+  cũng không đổi hành vi.
+- Đảo `toàn 7` với `toàn 0/7` → **2 test đỏ**. Tập chỉ có 7 thoả cả hai; đảo lại thì
+  user đã hủy bị tính thành "Đã đăng ký".
+
+Comment trong `ResolveStatus` trước đây ghi thứ tự bắt buộc là để `{2,7}` ra "Kích hoạt"
+— không chính xác. Ràng buộc thật nằm ở hai nhánh cuối. Đã sửa comment.
 
 Đó là giá trị của việc phá code thử: phân biệt ràng buộc thật với ràng buộc tưởng tượng.
 
 ## Bộ test này KHÔNG trả lời được gì
 
-Theo đúng định nghĩa, unit test không chạm cấu hình và không chạm môi trường. Những
-thứ sau vẫn xanh hết dù có sai:
+Gọi thẳng action nghĩa là **bỏ qua toàn bộ pipeline ASP.NET**. Những thứ sau vẫn xanh
+hết dù có sai:
 
-- cấu hình sai, build nhầm môi trường, nối nhầm database
-- `[Authorize]` hỏng, routing sai, middleware lỗi
-- schema Oracle lệch với code (`ORA-00904`, `ORA-12899`)
-- câu SQL viết tay sai cú pháp
+| | |
+|---|---|
+| `[Authorize(Policy = "MobileAppPolicy")]` | bị bỏ qua khi gọi trực tiếp — test không nói gì về việc endpoint có được bảo vệ đúng không |
+| Routing, model binding, middleware | không chạy |
+| Cấu hình sai, build nhầm môi trường, nối nhầm database | không thấy |
+| Schema Oracle lệch với code | `ORA-00904`, `ORA-12899` chỉ xuất hiện khi chạy thật |
+| Câu SQL viết tay | xem [`Sql/`](../Sql/) |
 
-Muốn phủ những thứ đó cần một loại test khác — gọi API thật qua HTTP. Đó là việc riêng,
-không phải mở rộng của bộ này.
+EF InMemory **không phải Oracle**: không kiểm tra ràng buộc, không biết `ORA-12899`,
+dịch LINQ theo luật C# chứ không phải SQL. Dùng nó để test **logic**.
+
+Muốn phủ những thứ trên cần gọi API thật qua HTTP — việc riêng, không phải mở rộng
+của bộ này.
 
 ## Hai cái bẫy đã gặp
 
@@ -114,3 +138,15 @@ lúc chạy chứ không phải lỗi biên dịch.
 
 **Đừng bao giờ đưa khoá thật vào test.** `HMAC256Tests` dùng vector kiểm thử công khai
 của RFC 4231.
+
+## Mang sang solution thật
+
+- `<TargetFramework>` phải trùng `VcbPortalApi.csproj`. Bản này để `net10.0`.
+- `Microsoft.EntityFrameworkCore.InMemory` phải cùng dòng version với
+  `Microsoft.EntityFrameworkCore` mà API đang dùng.
+- Project test dùng `Microsoft.NET.Sdk` thường, không có implicit using của Web SDK.
+  Đó là lý do csproj phải khai thêm `Microsoft.Extensions.Logging`,
+  `Microsoft.AspNetCore.Http` — thiếu là `CS0246: ILogger<> not found`.
+- Các file có header **FILE KHUNG** trong `VcbPortalApi/` là bản dựng lại của type
+  solution thật đã có (`ControllerCustom`, `MobileApiError`, entity, DbContext…) —
+  **đừng chép đè**.

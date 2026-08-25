@@ -9,22 +9,33 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VcbPortalApi\VcbPortalApi.csproj" />
   </ItemGroup>
 
-  <!--
-    Chi 3 package cua template xUnit.
-    KHONG EF InMemory, khong driver DB, khong thu vien mock, khong HttpClient.
-    Can bat ky thu nao trong so do nghia la thu dang test khong con la mot don vi
-    thuan - luc do no khong thuoc bo test nay.
-  -->
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+
+    <!-- DB chay trong bo nho, de test controller co dung DbContext. Version phai cung
+         dong voi Microsoft.EntityFrameworkCore ma VcbPortalApi dang dung. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
   </ItemGroup>
 
+  <!--
+    Code nguon viet cho Microsoft.NET.Sdk.Web, SDK do tu them san mot loat using
+    (ILogger, StatusCodes...). Project test dung Microsoft.NET.Sdk thuong nen khong co,
+    phai khai lai, neu khong se loi CS0246 khi test cham toi controller.
+  -->
   <ItemGroup>
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Logging" />
     <Using Include="Xunit" />
   </ItemGroup>
 
