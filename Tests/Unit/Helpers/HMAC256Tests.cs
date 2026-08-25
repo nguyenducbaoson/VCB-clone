@@ -1,6 +1,6 @@
 using VcbPortalApi.Helpers;
 
-namespace UnitTests.Helpers
+namespace Tests.Unit.Helpers
 {
     /// <summary>
     /// Unit test cho hàm ký HMAC-SHA256 dùng khi gọi VCB SSO.

@@ -1,7 +1,10 @@
 using System.Net;
-using ApiTests.TestSupport;
+using Tests.TestSupport;
 
-namespace ApiTests.VcbPortalApi
+// Namespace la Tests.Api chu khong phai Tests.Api.VcbPortalApi (theo ten thu muc):
+// mot namespace ten VcbPortalApi long trong Tests.Api se che khuat namespace goc
+// VcbPortalApi cua project API, lam cac using ben trong khong phan giai dung.
+namespace Tests.Api
 {
     /// <summary>
     /// POST /ma/partner/token — gọi API THẬT đang chạy trên môi trường đã cấu hình.

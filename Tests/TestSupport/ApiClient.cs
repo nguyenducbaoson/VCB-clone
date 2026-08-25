@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
-namespace ApiTests.TestSupport
+namespace Tests.TestSupport
 {
     /// <summary>
     /// Gọi API thật qua HTTP. Mọi test đều đi qua đây.

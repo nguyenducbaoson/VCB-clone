@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace ApiTests.TestSupport
+namespace Tests.TestSupport
 {
     /// <summary>
     /// Đọc nội dung một JWT mà KHÔNG kiểm tra chữ ký.

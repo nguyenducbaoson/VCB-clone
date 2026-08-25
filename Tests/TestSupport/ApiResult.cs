@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
-namespace ApiTests.TestSupport
+namespace Tests.TestSupport
 {
     /// <summary>
     /// Kết quả một lời gọi API.

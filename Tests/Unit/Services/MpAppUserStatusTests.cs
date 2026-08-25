@@ -1,6 +1,6 @@
 using VcbPortalApi.Services;
 
-namespace UnitTests.Services
+namespace Tests.Unit.Services
 {
     /// <summary>
     /// Unit test cho quy tắc suy ra trạng thái partner của user.

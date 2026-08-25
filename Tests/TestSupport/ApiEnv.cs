@@ -1,4 +1,4 @@
-namespace ApiTests.TestSupport
+namespace Tests.TestSupport
 {
     /// <summary>
     /// Cấu hình môi trường cần test. Lấy hết từ BIẾN MÔI TRƯỜNG, không có gì trong source.

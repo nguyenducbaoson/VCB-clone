@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Phai trung TargetFramework cua VcbPortalApi.csproj. -->
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -8,9 +9,17 @@
   </PropertyGroup>
 
   <!--
-    KHONG co ProjectReference toi VcbPortalApi. Co y.
-    Bo test nay chi noi chuyen HTTP + JSON voi API dang chay, nen chia vao
-    local / UAT / production deu duoc, va khong bi anh huong khi code doi.
+    Can tham chieu project vi lane Unit/ goi thang vao ham C#.
+    Luu y: lane Api/ KHONG duoc dung reference nay - no phai goi qua HTTP.
+    Khong co gi chan ve mat ky thuat, chi la ky luat. Xem README.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\VcbPortalApi\VcbPortalApi.csproj" />
+  </ItemGroup>
+
+  <!--
+    Chi 3 package cua template xUnit. KHONG EF InMemory, khong driver DB, khong
+    thu vien mock - can nhung thu do nghia la test do thuoc lane Api/, khong phai Unit/.
   -->
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
