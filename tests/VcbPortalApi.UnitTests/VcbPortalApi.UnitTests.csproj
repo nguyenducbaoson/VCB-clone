@@ -22,7 +22,6 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
 
     <PackageReference Include="Moq" Version="4.20.72" />
-    <PackageReference Include="AutoFixture" Version="4.18.1" />
 
     <!--
       GHIM 7.x CO CHU Y. Tu FluentAssertions 8.0 tro di, Xceed doi sang giay phep
@@ -43,8 +42,6 @@
   -->
   <ItemGroup>
     <Using Include="Microsoft.AspNetCore.Http" />
-    <Using Include="Microsoft.Extensions.DependencyInjection" />
-    <Using Include="Microsoft.Extensions.Logging" />
     <Using Include="Xunit" />
     <Using Include="FluentAssertions" />
     <Using Include="Moq" />

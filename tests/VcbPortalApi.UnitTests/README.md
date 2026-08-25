@@ -21,7 +21,6 @@ VcbPortalApi/                               tests/VcbPortalApi.UnitTests/
                                             │   ├── HMAC256Tests.cs
                                             │   └── TestDataHelper.cs    ← nhà máy dữ liệu
                                             └── Fixtures/                ← hạ tầng
-                                                ├── UnitTestBase.cs
                                                 ├── TestDb.cs
                                                 ├── TestHttpContext.cs
                                                 └── MobileApiAssertions.cs
@@ -34,7 +33,6 @@ VcbPortalApi/                               tests/VcbPortalApi.UnitTests/
 | xUnit | test runner |
 | Moq | mock interface (`IMpSsoAuthService`) |
 | FluentAssertions | `result.Should().Be(...)` |
-| AutoFixture | sinh dữ liệu ngẫu nhiên khi giá trị không quan trọng |
 | EF Core InMemory | DbContext chạy trong bộ nhớ |
 
 > **FluentAssertions ghim ở 7.2.0 có chủ ý.** Từ bản 8.0, Xceed đổi sang giấy phép
@@ -79,7 +77,6 @@ Nhìn tên là biết test cái gì. Khi fail, tên hiện trong log chính là 
 |---|---|---|
 | `Fixtures/TestDb.cs` | **mọi** DbContext | không |
 | `Fixtures/TestHttpContext.cs` | **mọi** controller kế thừa `ControllerCustom` | không |
-| `Fixtures/UnitTestBase.cs` | test cần AutoFixture | không |
 | `Fixtures/MobileApiAssertions.cs` | controller trả khuôn `MobileApiError` | không, nếu dùng chung khuôn |
 | `Helpers/TestDataHelper.cs` | dữ liệu mẫu | có — thêm một hàm `CreateXxx` |
 
@@ -89,12 +86,13 @@ using var fe = TestDb.Create<FrontendContext>();
 fe.Seed(TestDataHelper.CreateSession());
 
 // Bat ky controller nao ke thua ControllerCustom
-var ctx = TestHttpContext.Build(userName: "VATID001", roleId: Roles.RoleMid);
+var ctx = TestHttpContext.Build(userName: "VATID001");
 ```
 
 `TestHttpContext.Build` gắn claim theo đúng hằng `AppSettings.Claim*`, nên mọi property
 `protected` của `ControllerCustom` — `CurrentUserName`, `CurrentUserRoleId`,
 `CurrentUserBid/Mid/Tid`, `CurrentUserSessionId` — điều khiển được từ một chỗ.
+Cần claim nào ngoài username thì truyền qua tham số `claimThem`.
 
 ### Test data tách riêng
 
