@@ -3,9 +3,9 @@ using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using VcbPortalApi;
 
-namespace Tests.TestSupport
+
+namespace VcbPortalApi.UnitTests.Fixtures
 {
     /// <summary>
     /// Dựng HttpContext giả cho MỌI controller kế thừa ControllerCustom.
