@@ -23,6 +23,18 @@ namespace Tests.Api
     {
         private const string Endpoint = "ma/partner/token";
 
+        // Du lieu test: hang so ngay tai day vi chung gan voi ENDPOINT nay, khong
+        // gan voi moi truong. Doi UAT reset du lieu thi sua o day - mot cho, nhin thay
+        // duoc. Dung day vao bien moi truong: 20 endpoint se thanh 50 bien.
+        //
+        // BAT BUOC: Tid/Mid phai thuoc ve user cua VCB_API_TOKEN, neu khong controller
+        // tra MidOrTidNotExistUserBid va khong bao gio cham duoc duong thanh cong.
+        //   SELECT USERNAME, BID, MID, TID FROM MP_APP_PARTNER_CARD_REG
+        //   WHERE UPPER(USERNAME) = UPPER(<username ban dang nhap>);
+        private const string Partner = "PHONEPOS";
+        private const string Tid = "40000001";
+        private const string Mid = "68100000000097";   // chi user role BID moi can
+
         // ── 1. Không có quyền ───────────────────────────────────────────────────
 
         [ApiFact]
@@ -31,8 +43,8 @@ namespace Tests.Api
             var api = new ApiClient(token: null);   // không gắn Authorization
 
             var result = await api.PostFormAsync(Endpoint,
-                ("PartnerCode", ApiEnv.Partner),
-                ("Tid", ApiEnv.Tid));
+                ("PartnerCode", Partner),
+                ("Tid", Tid));
 
             Assert.True(result.Status == HttpStatusCode.Unauthorized,
                 $"Goi khong co token phai bi tu choi 401.\n{result.Describe}");
@@ -44,8 +56,8 @@ namespace Tests.Api
             var api = new ApiClient(token: "not-a-valid-jwt");
 
             var result = await api.PostFormAsync(Endpoint,
-                ("PartnerCode", ApiEnv.Partner),
-                ("Tid", ApiEnv.Tid));
+                ("PartnerCode", Partner),
+                ("Tid", Tid));
 
             Assert.True(result.Status == HttpStatusCode.Unauthorized,
                 $"Token rac phai bi tu choi 401.\n{result.Describe}");
@@ -63,7 +75,7 @@ namespace Tests.Api
 
             var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", partnerCode),
-                ("Tid", ApiEnv.Tid));
+                ("Tid", Tid));
 
             Assert.True(result.Field("code")?.Contains("PartnerCode", StringComparison.OrdinalIgnoreCase) == true,
                 $"Thieu partnerCode phai tra ma loi PartnerCodeEmpty.\n{result.Describe}");
@@ -75,7 +87,7 @@ namespace Tests.Api
             var api = new ApiClient();
 
             var result = await api.PostFormAsync(Endpoint,
-                ("PartnerCode", ApiEnv.Partner));   // không gửi Tid
+                ("PartnerCode", Partner));   // không gửi Tid
 
             Assert.True(result.Field("token") is null,
                 $"Thieu tid ma van phat token la sai.\n{result.Describe}");
@@ -89,9 +101,9 @@ namespace Tests.Api
             var api = new ApiClient();
 
             var result = await api.PostFormAsync(Endpoint,
-                ("PartnerCode", ApiEnv.Partner),
-                ("Mid", ApiEnv.Mid),
-                ("Tid", ApiEnv.Tid));
+                ("PartnerCode", Partner),
+                ("Mid", Mid),
+                ("Tid", Tid));
 
             Assert.True(result.IsSuccess, $"Mong doi HTTP 2xx.\n{result.Describe}");
             Assert.False(string.IsNullOrWhiteSpace(result.Field("token")),
@@ -104,19 +116,18 @@ namespace Tests.Api
             var api = new ApiClient();
 
             var result = await api.PostFormAsync(Endpoint,
-                ("PartnerCode", ApiEnv.Partner),
-                ("Mid", ApiEnv.Mid),
-                ("Tid", ApiEnv.Tid));
+                ("PartnerCode", Partner),
+                ("Mid", Mid),
+                ("Tid", Tid));
 
             var claims = Jwt.ReadClaims(result.Field("token"));
 
             Assert.True(claims.Count > 0, $"Khong doc duoc claim trong token.\n{result.Describe}");
             Assert.True(claims.ContainsKey("session_id"), "Token thieu claim session_id.");
             Assert.True(claims.ContainsKey("partner_code"), "Token thieu claim partner_code.");
-            Assert.Equal(ApiEnv.Partner, claims["partner_code"]);
+            Assert.Equal(Partner, claims["partner_code"]);
 
-            if (ApiEnv.Tid is { } tid)
-                Assert.Equal(tid, claims.GetValueOrDefault("tid"));
+            Assert.Equal(Tid, claims.GetValueOrDefault("tid"));
         }
 
         /// <summary>
@@ -129,9 +140,9 @@ namespace Tests.Api
             var api = new ApiClient();
 
             var result = await api.PostFormAsync(Endpoint,
-                ("PartnerCode", ApiEnv.Partner),
-                ("Mid", ApiEnv.Mid),
-                ("Tid", ApiEnv.Tid));
+                ("PartnerCode", Partner),
+                ("Mid", Mid),
+                ("Tid", Tid));
 
             var partnerExpiry = Jwt.ExpiresUtc(result.Field("token"));
             var userExpiry = Jwt.ExpiresUtc(ApiEnv.Token);

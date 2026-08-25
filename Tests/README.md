@@ -38,8 +38,29 @@ Lane `Api/` cần biến môi trường, chưa đặt thì skip chứ không fai
 ```powershell
 $env:VCB_API_BASEURL = "https://uat-host/api/v1"
 $env:VCB_API_TOKEN   = "<bearer token cua mot user da dang nhap>"
-$env:VCB_API_TID     = "40000001"
-$env:VCB_API_MID     = "68100000000097"    # user role BID moi can
+```
+
+Chỉ hai biến. **Biến môi trường chỉ giữ thứ đổi theo môi trường hoặc là bí mật.**
+Dữ liệu test — mid, tid, partner code… — là hằng số ngay trong file test, vì chúng
+gắn với endpoint chứ không gắn với môi trường:
+
+```csharp
+private const string Endpoint = "ma/partner/token";
+private const string Partner  = "PHONEPOS";
+private const string Tid      = "40000001";
+private const string Mid      = "68100000000097";
+```
+
+Nếu nhét hết vào biến môi trường thì 20 endpoint sẽ thành 50 biến, quên một cái là
+test đỏ với thông báo khó hiểu.
+
+Một ràng buộc phải nhớ: **`Tid`/`Mid` phải thuộc về user của `VCB_API_TOKEN`**, nếu
+không controller trả `MidOrTidNotExistUserBid` và không bao giờ chạm được đường thành
+công. Lấy đúng cặp bằng:
+
+```sql
+SELECT USERNAME, BID, MID, TID FROM MP_APP_PARTNER_CARD_REG
+WHERE  UPPER(USERNAME) = UPPER('<username ban dang nhap>');
 ```
 
 Trong Visual Studio đừng set tay từng lần — tạo `test.runsettings` cạnh `.sln`:
@@ -50,7 +71,6 @@ Trong Visual Studio đừng set tay từng lần — tạo `test.runsettings` c�
     <EnvironmentVariables>
       <VCB_API_BASEURL>https://uat-host/api/v1</VCB_API_BASEURL>
       <VCB_API_TOKEN>eyJhbGciOi...</VCB_API_TOKEN>
-      <VCB_API_TID>40000001</VCB_API_TID>
     </EnvironmentVariables>
   </RunConfiguration>
 </RunSettings>

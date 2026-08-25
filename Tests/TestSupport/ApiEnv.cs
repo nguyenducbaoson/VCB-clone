@@ -8,9 +8,13 @@ namespace Tests.TestSupport
     ///   VCB_API_BASEURL    https://uat-host/api/v1     cho VcbPortalApi
     ///   ADDREDIS_BASEURL   https://uat-host:5001       cho AddRedis
     ///   VCB_API_TOKEN      bearer token cua user da dang nhap
-    ///   VCB_API_MID        mid dung cho test (user role BID moi can)
-    ///   VCB_API_TID        tid dung cho test
-    ///   VCB_API_PARTNER    partner code, mac dinh PHONEPOS
+    ///
+    /// CHỈ đặt ở đây những gì ĐỔI THEO MÔI TRƯỜNG hoặc là BÍ MẬT.
+    ///
+    /// Dữ liệu test (mid, tid, partner code…) là HẰNG SỐ trong chính file test —
+    /// chúng gắn với endpoint chứ không gắn với môi trường, và không phải bí mật.
+    /// Nhét hết vào biến môi trường thì 20 endpoint sẽ thành 50 biến, không ai nhớ nổi
+    /// và quên một cái là test đỏ với thông báo khó hiểu.
     ///
     /// Service nào chưa đặt base URL thì test của service đó SKIP, các service khác
     /// vẫn chạy bình thường.
@@ -26,10 +30,6 @@ namespace Tests.TestSupport
         public const string AddRedis = "ADDREDIS_BASEURL";
 
         public static string? Token { get; } = Read("VCB_API_TOKEN");
-
-        public static string Partner { get; } = Read("VCB_API_PARTNER") ?? "PHONEPOS";
-        public static string? Mid { get; } = Read("VCB_API_MID");
-        public static string? Tid { get; } = Read("VCB_API_TID");
 
         /// <summary>Base URL của một service. null nếu chưa cấu hình.</summary>
         public static string? BaseUrl(string service) => Read(service)?.TrimEnd('/');
