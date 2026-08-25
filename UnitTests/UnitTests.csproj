@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--
+    Unit test goi thang vao code, nen PHAI tham chieu project. Nguoc lai voi
+    ApiTests - bo do goi qua HTTP nen khong tham chieu gi.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\VcbPortalApi\VcbPortalApi.csproj" />
+  </ItemGroup>
+
+  <!--
+    Chi 3 package cua template xUnit. KHONG co EF InMemory, khong co driver DB,
+    khong co thu vien mock - neu can nhung thu do thi thu dang test khong con
+    la mot don vi thuan nua, no thuoc ve ApiTests.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

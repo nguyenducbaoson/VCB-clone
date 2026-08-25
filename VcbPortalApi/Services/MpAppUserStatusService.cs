@@ -129,8 +129,12 @@ namespace VcbPortalApi.Services
             int.TryParse(raw?.Trim(), out var parsed) ? parsed : null;
 
         /// <summary>
-        /// THỨ TỰ CÁC NHÁNH LÀ BẮT BUỘC — user có cả bản ghi 2 lẫn 7 phải ra "Kích hoạt",
-        /// không phải "Hủy".
+        /// THỨ TỰ HAI NHÁNH CUỐI LÀ BẮT BUỘC: "toàn 7" phải xét TRƯỚC "toàn 0/7".
+        /// Tập chỉ có 7 thoả cả hai điều kiện; đảo lại thì user đã hủy sẽ ra "Đã đăng ký".
+        ///
+        /// Nhánh 2..6 thì đặt đâu cũng được — nó loại trừ nhau với hai nhánh kia (đã có
+        /// giá trị trong 2..6 thì không thể "toàn 7" hay "toàn 0/7"). Để lên đầu cho khớp
+        /// thứ tự bảng đặc tả, không phải vì bắt buộc.
         ///
         ///   Có ít nhất 1 bản ghi trạng thái 2/3/4/5/6  -> Kích hoạt    (2)
         ///   Tất cả bản ghi trạng thái 7                -> Hủy          (7)
