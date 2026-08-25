@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace VcbPortalApi.ApiTests.TestSupport
+namespace ApiTests.TestSupport
 {
     /// <summary>
     /// Đọc nội dung một JWT mà KHÔNG kiểm tra chữ ký.

@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace VcbPortalApi.ApiTests.TestSupport
+namespace ApiTests.TestSupport
 {
     /// <summary>
     /// Gọi API thật qua HTTP. Đây là toàn bộ "khung" — mọi test API đều đi qua đây.
@@ -15,15 +15,19 @@ namespace VcbPortalApi.ApiTests.TestSupport
     {
         private readonly HttpClient _http;
 
+        /// <param name="service">
+        /// Service cần gọi, mặc định VcbPortalApi. Dùng hằng trong <see cref="ApiEnv"/>:
+        /// <c>new ApiClient(ApiEnv.AddRedis)</c>.
+        /// </param>
         /// <param name="token">
         /// null = KHÔNG gắn header Authorization (để test nhánh 401).
         /// Không truyền = dùng token trong biến môi trường.
         /// </param>
-        public ApiClient(string? token = "", TimeSpan? timeout = null)
+        public ApiClient(string service = ApiEnv.VcbPortalApi, string? token = "", TimeSpan? timeout = null)
         {
             _http = new HttpClient
             {
-                BaseAddress = new Uri(ApiEnv.BaseUrl + "/"),
+                BaseAddress = new Uri(ApiEnv.BaseUrl(service) + "/"),
                 Timeout = timeout ?? TimeSpan.FromSeconds(30)
             };
 

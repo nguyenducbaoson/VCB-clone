@@ -1,7 +1,7 @@
 using System.Net;
-using VcbPortalApi.ApiTests.TestSupport;
+using ApiTests.TestSupport;
 
-namespace VcbPortalApi.ApiTests
+namespace ApiTests.VcbPortalApi
 {
     /// <summary>
     /// POST /ma/partner/token — gọi API THẬT đang chạy trên môi trường đã cấu hình.

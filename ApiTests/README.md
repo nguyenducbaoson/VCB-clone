@@ -1,4 +1,4 @@
-# VcbPortalApi.ApiTests
+# VcbPortalApi.Tests
 
 Test gọi API **thật đang chạy** qua HTTP. Không mock, không seed, không tham chiếu
 code của API.
@@ -11,7 +11,7 @@ $env:VCB_API_TOKEN   = "<bearer token cua mot user da dang nhap>"
 $env:VCB_API_TID     = "40000001"
 $env:VCB_API_MID     = "68100000000097"   # user role BID moi can
 
-dotnet test VcbPortalApi.ApiTests
+dotnet test VcbPortalApi.Tests
 ```
 
 Chưa đặt `VCB_API_BASEURL` + `VCB_API_TOKEN` thì test **skip**, không fail.

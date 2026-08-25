@@ -27,6 +27,10 @@ coverage*.xml
 packages/
 .nuget/
 
+# Ngoai le: goi de restore offline tren may khong co internet
+!nuget-offline/
+!nuget-offline/*.nupkg
+
 # Local config chua secret - khong day len remote
 appsettings.Development.json
 appsettings.Local.json
