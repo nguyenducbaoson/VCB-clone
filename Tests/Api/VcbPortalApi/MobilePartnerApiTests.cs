@@ -27,7 +27,7 @@ namespace Tests.Api
         // gan voi moi truong. Doi UAT reset du lieu thi sua o day - mot cho, nhin thay
         // duoc. Dung day vao bien moi truong: 20 endpoint se thanh 50 bien.
         //
-        // BAT BUOC: Tid/Mid phai thuoc ve user cua VCB_API_TOKEN, neu khong controller
+        // BAT BUOC: Tid/Mid phai thuoc ve user dang nhap (VCB_API_USERNAME), neu khong controller
         // tra MidOrTidNotExistUserBid va khong bao gio cham duoc duong thanh cong.
         //   SELECT USERNAME, BID, MID, TID FROM MP_APP_PARTNER_CARD_REG
         //   WHERE UPPER(USERNAME) = UPPER(<username ban dang nhap>);
@@ -145,11 +145,11 @@ namespace Tests.Api
                 ("Tid", Tid));
 
             var partnerExpiry = Jwt.ExpiresUtc(result.Field("token"));
-            var userExpiry = Jwt.ExpiresUtc(ApiEnv.Token);
+            var userExpiry = Jwt.ExpiresUtc(await Login.TokenAsync());
 
             Assert.True(partnerExpiry is not null, $"Token tra ve khong co han (exp).\n{result.Describe}");
             Assert.True(userExpiry is not null,
-                "VCB_API_TOKEN khong doc duoc han — kiem tra lai token dat trong bien moi truong.");
+                "Khong doc duoc han cua token user - kiem tra lai buoc dang nhap.");
 
             Assert.True(partnerExpiry <= userExpiry!.Value.AddSeconds(2),
                 $"Token partner het han {partnerExpiry:O}, sau ca token user {userExpiry:O}. " +

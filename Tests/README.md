@@ -11,6 +11,12 @@ Tests/
 │   ├── VcbPortalApi/MobilePartnerApiTests.cs
 │   └── AddRedis/
 ├── TestSupport/       ← hạ tầng dùng chung cho lane Api
+│   ├── ApiEnv.cs      cấu hình môi trường + [ApiFact] tự skip
+│   ├── Login.cs       tự đăng nhập lấy token, cache cả phiên
+│   ├── ApiClient.cs   gọi HTTP
+│   ├── ApiResult.cs   đọc kết quả
+│   ├── Jwt.cs         đọc claim trong token
+│   └── AssemblyConfig.cs
 └── Tests.csproj
 ```
 
@@ -40,9 +46,20 @@ Chạy local là trường hợp thường ngày:
 
 ```powershell
 # Chay API bang F5 truoc, roi lay port trong console hoac Properties/launchSettings.json
-$env:VCB_API_BASEURL = "http://localhost:5000/api/v1"
-$env:VCB_API_TOKEN   = "<bearer token lay sau khi dang nhap>"
+$env:VCB_API_BASEURL  = "http://localhost:5000/api/v1"
+$env:VCB_API_USERNAME = "VATID001"
+$env:VCB_API_PASSWORD = "<mat khau>"
 ```
+
+Bộ test **tự gọi API login** lấy token, một lần cho cả phiên chạy. Không phải copy
+token thủ công, và không dính chuyện token hết hạn giữa chừng.
+
+Ba hằng trong [`TestSupport/Login.cs`](TestSupport/Login.cs) là phỏng đoán — chạy lần
+đầu mà 401 hàng loạt thì kiểm tra đúng chúng: đường dẫn login, tên field trong body,
+tên field chứa token trong response. Lỗi in ra đã kèm sẵn URL và body của lời gọi login.
+
+Muốn bỏ qua bước đăng nhập (API login đang hỏng, hoặc cần test bằng một user cụ thể)
+thì đặt sẵn `VCB_API_TOKEN`.
 
 Trước khi deploy thì đổi sang UAT — chỉ đổi một biến, không sửa code:
 
@@ -58,7 +75,7 @@ không nói gì về chứng chỉ. Buộc phải dùng `https://` thì chạy m
 dotnet dev-certs https --trust
 ```
 
-Chỉ hai biến. **Biến môi trường chỉ giữ thứ đổi theo môi trường hoặc là bí mật.**
+**Biến môi trường chỉ giữ thứ đổi theo môi trường hoặc là bí mật.**
 Dữ liệu test — mid, tid, partner code… — là hằng số ngay trong file test, vì chúng
 gắn với endpoint chứ không gắn với môi trường:
 
@@ -72,7 +89,7 @@ private const string Mid      = "68100000000097";
 Nếu nhét hết vào biến môi trường thì 20 endpoint sẽ thành 50 biến, quên một cái là
 test đỏ với thông báo khó hiểu.
 
-Một ràng buộc phải nhớ: **`Tid`/`Mid` phải thuộc về user của `VCB_API_TOKEN`**, nếu
+Một ràng buộc phải nhớ: **`Tid`/`Mid` phải thuộc về user đăng nhập (`VCB_API_USERNAME`)**, nếu
 không controller trả `MidOrTidNotExistUserBid` và không bao giờ chạm được đường thành
 công. Lấy đúng cặp bằng:
 
@@ -88,14 +105,15 @@ Trong Visual Studio đừng set tay từng lần — tạo `test.runsettings` c�
   <RunConfiguration>
     <EnvironmentVariables>
       <VCB_API_BASEURL>http://localhost:5000/api/v1</VCB_API_BASEURL>
-      <VCB_API_TOKEN>eyJhbGciOi...</VCB_API_TOKEN>
+      <VCB_API_USERNAME>VATID001</VCB_API_USERNAME>
+      <VCB_API_PASSWORD>...</VCB_API_PASSWORD>
     </EnvironmentVariables>
   </RunConfiguration>
 </RunSettings>
 ```
 
 **Test** → **Configure Run Settings** → **Select Solution Wide runsettings File**.
-File này chứa token thật → thêm vào `.gitignore` ngay.
+File này chứa mật khẩu thật → thêm vào `.gitignore` ngay.
 
 > **Skip không phải pass.** Đọc số `Skipped`. Trước khi deploy phải có một lần chạy
 > lane `Api/` với `Skipped: 0`.

@@ -37,7 +37,7 @@ namespace Tests.TestSupport
                 Timeout = TimeSpan.FromSeconds(30)
             });
 
-            _token = token == "" ? ApiEnv.Token : token;
+            _token = token;
         }
 
         /// <summary>POST dạng x-www-form-urlencoded. Bỏ qua field có giá trị null.</summary>
@@ -62,7 +62,9 @@ namespace Tests.TestSupport
         {
             using (request)
             {
-                if (_token is not null)
+                if (_token == "")
+                    await Login.AttachAsync(request);   // đăng nhập một lần, cache lại
+                else if (_token is not null)
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
 
                 using var response = await _http.SendAsync(request);
