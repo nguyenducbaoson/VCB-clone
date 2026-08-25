@@ -34,6 +34,38 @@ VcbPortalApi/                               Tests/
 
 Tên hàm dài không sao. Khi fail, tên hiện trong log chính là câu mô tả lỗi.
 
+## Hạ tầng: dùng chung được cho mọi controller, mọi DbContext
+
+Hệ thống có nhiều controller và nhiều DbContext, nên `TestSupport/` viết theo hướng
+tổng quát — thêm controller mới **không** phải thêm file hạ tầng.
+
+| File | Dùng cho | Phải sửa khi thêm controller? |
+|---|---|---|
+| `TestDb.cs` | **mọi** DbContext | không |
+| `TestHttpContext.cs` | **mọi** controller kế thừa `ControllerCustom` | không |
+| `MobileTestKit.cs` | riêng `MobilePartnerController` | có — mỗi controller một file cỡ 70 dòng |
+| `FakeMpSsoAuthService.cs` | riêng `MerchantSsoController` | chỉ khi controller có service để fake |
+
+```csharp
+// Bat ky DbContext nao
+using var fe = TestDb.Create<FrontendContext>();
+using var mc = TestDb.Create<MerchantContext>();
+
+// Do du lieu mau - khong can helper rieng cho tung bang
+fe.Seed(new MpSession { UserName = "VATID001", SessionId = "s-1" });
+mc.Seed(new MpTerminal { RowId = 1, Bid = 100, Mid = 200, Tid = 300 });
+
+// Bat ky controller nao ke thua ControllerCustom
+var ctx = TestHttpContext.Build(userName: "VATID001", roleId: Roles.RoleMid, tid: 300);
+```
+
+`TestHttpContext.Build` gắn claim theo đúng hằng `AppSettings.Claim*`, nên mọi property
+`protected` của `ControllerCustom` — `CurrentUserName`, `CurrentUserRoleId`,
+`CurrentUserBid/Mid/Tid`, `CurrentUserSessionId` — đều điều khiển được từ một chỗ.
+
+Phần **phải viết riêng cho mỗi controller** chỉ còn hai thứ: cách dựng controller đó
+(constructor nhận gì) và cách đọc khuôn response của nó. Xem `MobileTestKit.cs` — 75 dòng.
+
 ## Ba mẫu, chọn theo thứ tự ưu tiên
 
 ### Mẫu 1 — hàm thuần · rẻ nhất, ưu tiên
@@ -48,8 +80,8 @@ Cố gắng tách logic quyết định ra hàm `static` để test được ki�
 ### Mẫu 2 — service có đụng DbContext
 [`Services/MpAppUserStatusServiceTests.cs`](Services/MpAppUserStatusServiceTests.cs)
 
-Dùng [`TestSupport/TestDb.cs`](TestSupport/TestDb.cs): EF Core InMemory, mỗi test một
-database riêng theo `Guid` nên chạy song song không giẫm chân nhau.
+Dùng `TestDb.Create<T>()` — EF Core InMemory, mỗi test một database riêng theo `Guid`
+nên chạy song song không giẫm chân nhau.
 
 Ba bước Arrange / Act / Assert, Act chỉ gọi **một** hàm.
 
@@ -58,7 +90,7 @@ Ba bước Arrange / Act / Assert, Act chỉ gọi **một** hàm.
 
 Gọi thẳng action như gọi hàm thường. Không dựng web server, không mở cổng.
 
-[`TestSupport/MobileTestKit.cs`](TestSupport/MobileTestKit.cs) gom bốn chỗ khó:
+`TestHttpContext` + `MobileTestKit` gom bốn chỗ khó:
 
 | Vướng | Cách gỡ |
 |---|---|

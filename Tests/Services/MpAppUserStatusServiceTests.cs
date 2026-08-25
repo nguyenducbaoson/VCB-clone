@@ -1,5 +1,7 @@
 using Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
+using VcbPortalApi.DbContext;
+using VcbPortalApi.Models.SSO;
 using VcbPortalApi.Services;
 
 namespace Tests.Services
@@ -24,10 +26,9 @@ namespace Tests.Services
         public async Task RefreshStatusAsync_CapNhatCaHaiCotTheoBanGhiDangKy()
         {
             // Arrange — VATID001 trên UAT: 3 dòng VISAACCEPT (3, 3, 0) và 1 dòng PHONEPOS (2)
-            using var db = TestDb.Create();
-            var user = TestDb.SeedUser(db, "VATID001");
-            TestDb.SeedRegistrations(db, "VATID001",
-                ("VISAACCEPT", "3"),
+            using var db = TestDb.Create<VcbPortalDbContext>();
+            var user = db.Seed(new MpAppUser { Username = "VATID001" });
+            SeedRegistrations(db, "VATID001", ("VISAACCEPT", "3"),
                 ("VISAACCEPT", "3"),
                 ("VISAACCEPT", "0"),
                 ("PHONEPOS",   "2"));
@@ -43,10 +44,9 @@ namespace Tests.Services
         [Fact]
         public async Task RefreshStatusAsync_HaiPartnerCoTheRaHaiTrangThaiKhacNhau()
         {
-            using var db = TestDb.Create();
-            var user = TestDb.SeedUser(db, "VATID004");
-            TestDb.SeedRegistrations(db, "VATID004",
-                ("PHONEPOS",   "2"),
+            using var db = TestDb.Create<VcbPortalDbContext>();
+            var user = db.Seed(new MpAppUser { Username = "VATID004" });
+            SeedRegistrations(db, "VATID004", ("PHONEPOS",   "2"),
                 ("VISAACCEPT", "0"));
 
             await CreateService(db).RefreshStatusAsync("VATID004");
@@ -58,8 +58,8 @@ namespace Tests.Services
         [Fact]
         public async Task RefreshStatusAsync_KhongCoBanGhiNao_TraVeChuaDangKy()
         {
-            using var db = TestDb.Create();
-            var user = TestDb.SeedUser(db, "TIENNX", phonepos: 2, visaaccept: 2);
+            using var db = TestDb.Create<VcbPortalDbContext>();
+            var user = db.Seed(new MpAppUser { Username = "TIENNX", PhoneposStatus = 2, VisaacceptStatus = 2 });
 
             await CreateService(db).RefreshStatusAsync("TIENNX");
 
@@ -74,9 +74,9 @@ namespace Tests.Services
         [Fact]
         public async Task RefreshStatusAsync_KhongDungToiFinoneStatus()
         {
-            using var db = TestDb.Create();
-            var user = TestDb.SeedUser(db, "VATID001", finone: 2);
-            TestDb.SeedRegistrations(db, "VATID001", ("PHONEPOS", "0"));
+            using var db = TestDb.Create<VcbPortalDbContext>();
+            var user = db.Seed(new MpAppUser { Username = "VATID001", FinoneStatus = 2 });
+            SeedRegistrations(db, "VATID001", ("PHONEPOS", "0"));
 
             await CreateService(db).RefreshStatusAsync("VATID001");
 
@@ -88,9 +88,9 @@ namespace Tests.Services
         [InlineData("  VATID001  ")]
         public async Task RefreshStatusAsync_KhopUsernameKhongPhanBietHoaThuong(string usernameGoiVao)
         {
-            using var db = TestDb.Create();
-            var user = TestDb.SeedUser(db, "VATID001");
-            TestDb.SeedRegistrations(db, "VATID001", ("PHONEPOS", "2"));
+            using var db = TestDb.Create<VcbPortalDbContext>();
+            var user = db.Seed(new MpAppUser { Username = "VATID001" });
+            SeedRegistrations(db, "VATID001", ("PHONEPOS", "2"));
 
             await CreateService(db).RefreshStatusAsync(usernameGoiVao);
 
@@ -104,8 +104,8 @@ namespace Tests.Services
         [Fact]
         public async Task RefreshStatusAsync_KhongTimThayUser_KhongNemException()
         {
-            using var db = TestDb.Create();
-            TestDb.SeedRegistrations(db, "KHONG_TON_TAI", ("PHONEPOS", "2"));
+            using var db = TestDb.Create<VcbPortalDbContext>();
+            SeedRegistrations(db, "KHONG_TON_TAI", ("PHONEPOS", "2"));
 
             var ex = await Record.ExceptionAsync(() =>
                 CreateService(db).RefreshStatusAsync("KHONG_TON_TAI"));
@@ -119,7 +119,7 @@ namespace Tests.Services
         [InlineData("   ")]
         public async Task RefreshStatusAsync_UsernameRong_KhongNemException(string? username)
         {
-            using var db = TestDb.Create();
+            using var db = TestDb.Create<VcbPortalDbContext>();
 
             var ex = await Record.ExceptionAsync(() => CreateService(db).RefreshStatusAsync(username!));
 
@@ -133,14 +133,37 @@ namespace Tests.Services
         [Fact]
         public async Task RefreshStatusAsync_KhongLayNhamBanGhiCuaUserKhac()
         {
-            using var db = TestDb.Create();
-            var user = TestDb.SeedUser(db, "VATID005");
-            TestDb.SeedRegistrations(db, "VATID005", ("PHONEPOS", "0"));
-            TestDb.SeedRegistrations(db, "VATID002", ("PHONEPOS", "2"));
+            using var db = TestDb.Create<VcbPortalDbContext>();
+            var user = db.Seed(new MpAppUser { Username = "VATID005" });
+            SeedRegistrations(db, "VATID005", ("PHONEPOS", "0"));
+            SeedRegistrations(db, "VATID002", ("PHONEPOS", "2"));
 
             await CreateService(db).RefreshStatusAsync("VATID005");
 
             Assert.Equal(MpAppUserStatus.DaDangKy, user.PhoneposStatus);
+        }
+        /// <summary>
+        /// Dac thu cua service nay: mot user co nhieu dong dang ky. Bang that khong co
+        /// khoa chinh nen entity dung khoa gia RowId, helper tu gan cho khoi vuong.
+        /// </summary>
+        private static void SeedRegistrations(
+            VcbPortalDbContext db, string username, params (string Partner, string? Status)[] rows)
+        {
+            var nextRowId = db.Set<MpAppPartnerCardReg>().Count();
+
+            foreach (var (partner, status) in rows)
+            {
+                db.Add(new MpAppPartnerCardReg
+                {
+                    RowId = ++nextRowId,
+                    Username = username,
+                    Partner = partner,
+                    Status = status,
+                    CreateTime = new DateTime(2026, 1, 1)
+                });
+            }
+
+            db.SaveChanges();
         }
     }
 }

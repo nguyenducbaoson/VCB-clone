@@ -1,4 +1,7 @@
 using VcbPortalApi;
+using VcbPortalApi.DbContext;
+using VcbPortalApi.Models.MP;
+using VcbPortalApi.Models.SSO;
 using System.Security.Claims;
 using Microsoft.IdentityModel.JsonWebTokens;
 using VcbPortalApi.DbContext;
@@ -31,26 +34,26 @@ namespace Tests.Controllers.Mobile
         /// </summary>
         private static (FrontendContext Fe, MerchantContext Mc) BoiCanhHopLeRoleMid()
         {
-            var fe = MobileTestDb.CreateFrontend();
-            var mc = MobileTestDb.CreateMerchant();
+            var fe = TestDb.Create<FrontendContext>();
+            var mc = TestDb.Create<MerchantContext>();
 
-            MobileTestDb.SeedSession(fe, UserName, sessionId: "session-1");
-            MobileTestDb.SeedUsersCommon(fe, UserName, email: "a@vcb.com.vn", roleId: Roles.RoleMid);
-            MobileTestDb.SeedAppUser(fe, UserName, bid: UserBid, mid: UserMid);
-            MobileTestDb.SeedTerminal(mc, bid: UserBid, mid: UserMid, tid: FormTid);
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "session-1" });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleMid });
+            fe.Seed(new MpAppUser { Username = UserName, Bid = UserBid, Mid = UserMid });
+            mc.Seed(new MpTerminal { RowId = 1, Bid = UserBid, Mid = UserMid, Tid = FormTid });
 
             return (fe, mc);
         }
 
         private static (FrontendContext Fe, MerchantContext Mc) BoiCanhHopLeRoleBid()
         {
-            var fe = MobileTestDb.CreateFrontend();
-            var mc = MobileTestDb.CreateMerchant();
+            var fe = TestDb.Create<FrontendContext>();
+            var mc = TestDb.Create<MerchantContext>();
 
-            MobileTestDb.SeedSession(fe, UserName, sessionId: "session-1");
-            MobileTestDb.SeedUsersCommon(fe, UserName, email: "a@vcb.com.vn", roleId: Roles.RoleBid);
-            MobileTestDb.SeedAppUser(fe, UserName, bid: UserBid, mid: UserMid);
-            MobileTestDb.SeedTerminal(mc, bid: UserBid, mid: UserMid, tid: FormTid);
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "session-1" });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleBid });
+            fe.Seed(new MpAppUser { Username = UserName, Bid = UserBid, Mid = UserMid });
+            mc.Seed(new MpTerminal { RowId = 1, Bid = UserBid, Mid = UserMid, Tid = FormTid });
 
             return (fe, mc);
         }
@@ -87,7 +90,7 @@ namespace Tests.Controllers.Mobile
             using var _1 = fe; using var _2 = mc;
 
             // userName null -> không gắn claim nào -> CurrentUserName rỗng
-            var controller = MobileTestKit.CreateController(fe, mc, userName: null);
+            var controller = MobileTestKit.CreateController(fe, mc, TestHttpContext.Build(userName: null));
 
             var result = await controller.IssueSsoToken(FormHopLe());
 
@@ -119,7 +122,7 @@ namespace Tests.Controllers.Mobile
             var (fe, mc) = BoiCanhHopLeRoleMid();
             using var _1 = fe; using var _2 = mc;
 
-            var controller = MobileTestKit.CreateController(fe, mc, coHeaderAuthorization: false);
+            var controller = MobileTestKit.CreateController(fe, mc, TestHttpContext.Build(coBearerToken: false));
 
             var result = await controller.IssueSsoToken(FormHopLe());
 
@@ -132,8 +135,7 @@ namespace Tests.Controllers.Mobile
             var (fe, mc) = BoiCanhHopLeRoleMid();
             using var _1 = fe; using var _2 = mc;
 
-            var controller = MobileTestKit.CreateController(
-                fe, mc, tokenExpiresUtc: DateTime.UtcNow.AddMinutes(-1));
+            var controller = MobileTestKit.CreateController(fe, mc, TestHttpContext.Build(tokenExpiresUtc: DateTime.UtcNow.AddMinutes(-1)));
 
             var result = await controller.IssueSsoToken(FormHopLe());
 
@@ -143,11 +145,11 @@ namespace Tests.Controllers.Mobile
         [Fact]
         public async Task IssueSsoToken_KhongCoSession_TraVeBaseError()
         {
-            using var fe = MobileTestDb.CreateFrontend();
-            using var mc = MobileTestDb.CreateMerchant();
+            using var fe = TestDb.Create<FrontendContext>();
+            using var mc = TestDb.Create<MerchantContext>();
             // Cố tình KHÔNG seed session
-            MobileTestDb.SeedUsersCommon(fe, UserName, roleId: Roles.RoleMid);
-            MobileTestDb.SeedAppUser(fe, UserName, mid: UserMid);
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleMid });
+            fe.Seed(new MpAppUser { Username = UserName, Mid = UserMid });
 
             var controller = MobileTestKit.CreateController(fe, mc);
 
@@ -159,11 +161,11 @@ namespace Tests.Controllers.Mobile
         [Fact]
         public async Task IssueSsoToken_SessionIdRong_TraVeBaseError()
         {
-            using var fe = MobileTestDb.CreateFrontend();
-            using var mc = MobileTestDb.CreateMerchant();
-            MobileTestDb.SeedSession(fe, UserName, sessionId: "   ");
-            MobileTestDb.SeedUsersCommon(fe, UserName, roleId: Roles.RoleMid);
-            MobileTestDb.SeedAppUser(fe, UserName, mid: UserMid);
+            using var fe = TestDb.Create<FrontendContext>();
+            using var mc = TestDb.Create<MerchantContext>();
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "   " });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleMid });
+            fe.Seed(new MpAppUser { Username = UserName, Mid = UserMid });
 
             var controller = MobileTestKit.CreateController(fe, mc);
 
@@ -175,11 +177,11 @@ namespace Tests.Controllers.Mobile
         [Fact]
         public async Task IssueSsoToken_EmailRong_TraVeBaseError()
         {
-            using var fe = MobileTestDb.CreateFrontend();
-            using var mc = MobileTestDb.CreateMerchant();
-            MobileTestDb.SeedSession(fe, UserName);
-            MobileTestDb.SeedUsersCommon(fe, UserName, email: null, roleId: Roles.RoleMid);
-            MobileTestDb.SeedAppUser(fe, UserName, mid: UserMid);
+            using var fe = TestDb.Create<FrontendContext>();
+            using var mc = TestDb.Create<MerchantContext>();
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "session-1" });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = null, RoleId = Roles.RoleMid });
+            fe.Seed(new MpAppUser { Username = UserName, Mid = UserMid });
 
             var controller = MobileTestKit.CreateController(fe, mc);
 
@@ -215,12 +217,12 @@ namespace Tests.Controllers.Mobile
         [Fact]
         public async Task IssueSsoToken_RoleBidNhungUserKhongCoBid_TraVeUserBidInvalid()
         {
-            using var fe = MobileTestDb.CreateFrontend();
-            using var mc = MobileTestDb.CreateMerchant();
-            MobileTestDb.SeedSession(fe, UserName);
-            MobileTestDb.SeedUsersCommon(fe, UserName, roleId: Roles.RoleBid);
-            MobileTestDb.SeedAppUser(fe, UserName, bid: null, mid: UserMid);   // ← thiếu BID
-            MobileTestDb.SeedTerminal(mc, UserBid, UserMid, FormTid);
+            using var fe = TestDb.Create<FrontendContext>();
+            using var mc = TestDb.Create<MerchantContext>();
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "session-1" });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleBid });
+            fe.Seed(new MpAppUser { Username = UserName, Bid = null, Mid = UserMid });   // ← thiếu BID
+            mc.Seed(new MpTerminal { RowId = 1, Bid = UserBid, Mid = UserMid, Tid = FormTid });
 
             var controller = MobileTestKit.CreateController(fe, mc);
 
@@ -266,12 +268,12 @@ namespace Tests.Controllers.Mobile
         [Fact]
         public async Task IssueSsoToken_RoleMidNhungUserKhongCoMid_TraVeUserMidInvalid()
         {
-            using var fe = MobileTestDb.CreateFrontend();
-            using var mc = MobileTestDb.CreateMerchant();
-            MobileTestDb.SeedSession(fe, UserName);
-            MobileTestDb.SeedUsersCommon(fe, UserName, roleId: Roles.RoleMid);
-            MobileTestDb.SeedAppUser(fe, UserName, bid: UserBid, mid: null);   // ← thiếu MID
-            MobileTestDb.SeedTerminal(mc, UserBid, UserMid, FormTid);
+            using var fe = TestDb.Create<FrontendContext>();
+            using var mc = TestDb.Create<MerchantContext>();
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "session-1" });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleMid });
+            fe.Seed(new MpAppUser { Username = UserName, Bid = UserBid, Mid = null });   // ← thiếu MID
+            mc.Seed(new MpTerminal { RowId = 1, Bid = UserBid, Mid = UserMid, Tid = FormTid });
 
             var controller = MobileTestKit.CreateController(fe, mc);
 
@@ -360,12 +362,10 @@ namespace Tests.Controllers.Mobile
             using var _1 = fe; using var _2 = mc;
 
             // Bearer token mang mid/role CŨ, khác hẳn dữ liệu hiện tại trong DB.
-            var controller = MobileTestKit.CreateController(fe, mc,
-                claimThem:
-                [
+            var controller = MobileTestKit.CreateController(fe, mc, TestHttpContext.Build(claimThem: [
                     new Claim(AppSettings.ClaimMid, "88888888"),
                     new Claim(AppSettings.ClaimRoleId, Roles.RoleBid.ToString())
-                ]);
+                ]));
 
             var result = await controller.IssueSsoToken(FormHopLe());
 
@@ -381,12 +381,12 @@ namespace Tests.Controllers.Mobile
         [Fact]
         public async Task IssueSsoToken_RoleBid_ClaimMidTidLayTuForm()
         {
-            using var fe = MobileTestDb.CreateFrontend();
-            using var mc = MobileTestDb.CreateMerchant();
-            MobileTestDb.SeedSession(fe, UserName);
-            MobileTestDb.SeedUsersCommon(fe, UserName, email: "a@vcb.com.vn", roleId: Roles.RoleBid);
-            MobileTestDb.SeedAppUser(fe, UserName, bid: UserBid, mid: 11111111);   // mid của chính user
-            MobileTestDb.SeedTerminal(mc, bid: UserBid, mid: 22222222, tid: 33333333);
+            using var fe = TestDb.Create<FrontendContext>();
+            using var mc = TestDb.Create<MerchantContext>();
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "session-1" });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleBid });
+            fe.Seed(new MpAppUser { Username = UserName, Bid = UserBid, Mid = 11111111 });   // mid của chính user
+            mc.Seed(new MpTerminal { RowId = 1, Bid = UserBid, Mid = 22222222, Tid = 33333333 });
 
             var controller = MobileTestKit.CreateController(fe, mc);
 
@@ -413,7 +413,7 @@ namespace Tests.Controllers.Mobile
             using var _1 = fe; using var _2 = mc;
 
             var hanBearer = DateTime.UtcNow.AddMinutes(17);
-            var controller = MobileTestKit.CreateController(fe, mc, tokenExpiresUtc: hanBearer);
+            var controller = MobileTestKit.CreateController(fe, mc, TestHttpContext.Build(tokenExpiresUtc: hanBearer));
 
             var result = await controller.IssueSsoToken(FormHopLe());
 
@@ -434,7 +434,7 @@ namespace Tests.Controllers.Mobile
             var result = await controller.IssueSsoToken(FormHopLe());
 
             var token = MobileTestKit.DocToken(result);
-            Assert.Equal(MobileTestKit.TestIssuer, token.Issuer);
+            Assert.Equal(TestHttpContext.TestIssuer, token.Issuer);
             Assert.Contains("mobile-partner-sdk", token.Audiences);
         }
 
@@ -446,11 +446,11 @@ namespace Tests.Controllers.Mobile
         [Fact]
         public async Task IssueSsoToken_RoleKhac_VanPhatTokenNhungKhongCoClaimMidTid()
         {
-            using var fe = MobileTestDb.CreateFrontend();
-            using var mc = MobileTestDb.CreateMerchant();
-            MobileTestDb.SeedSession(fe, UserName);
-            MobileTestDb.SeedUsersCommon(fe, UserName, email: "a@vcb.com.vn", roleId: Roles.RoleTid);
-            MobileTestDb.SeedAppUser(fe, UserName, bid: UserBid, mid: UserMid);
+            using var fe = TestDb.Create<FrontendContext>();
+            using var mc = TestDb.Create<MerchantContext>();
+            fe.Seed(new MpSession { UserName = UserName, SessionId = "session-1" });
+            fe.Seed(new MpUsersCommon { UserName = UserName, Email = "a@vcb.com.vn", RoleId = Roles.RoleTid });
+            fe.Seed(new MpAppUser { Username = UserName, Bid = UserBid, Mid = UserMid });
 
             var controller = MobileTestKit.CreateController(fe, mc);
 

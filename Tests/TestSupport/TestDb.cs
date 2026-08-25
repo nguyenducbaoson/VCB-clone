@@ -1,87 +1,56 @@
 using Microsoft.EntityFrameworkCore;
-using VcbPortalApi.DbContext;
-using VcbPortalApi.Models.SSO;
 
 namespace Tests.TestSupport
 {
     /// <summary>
-    /// Tạo DbContext chạy trên bộ nhớ (EF Core InMemory) cho test.
+    /// Dựng DbContext chạy trên bộ nhớ. Dùng được cho MỌI DbContext trong solution,
+    /// không phải viết helper riêng cho từng cái:
     ///
-    /// Mỗi lần gọi <see cref="Create"/> sinh một database riêng theo Guid, nên các test
-    /// chạy song song không giẫm lên dữ liệu của nhau. Không cần Oracle, không cần dọn dẹp.
+    ///     using var fe = TestDb.Create&lt;FrontendContext&gt;();
+    ///     using var mc = TestDb.Create&lt;MerchantContext&gt;();
     ///
-    /// Giới hạn cần biết: InMemory KHÔNG phải Oracle. Nó không kiểm tra ràng buộc, không
-    /// biết ORA-12899, và dịch LINQ theo luật của C# chứ không phải SQL. Dùng nó để test
-    /// LOGIC nghiệp vụ. Những gì phụ thuộc hành vi thật của Oracle thì kiểm tra bằng
-    /// script trong Sql/ chạy trên UAT.
+    /// Mỗi lần gọi sinh một database riêng theo Guid, nên test chạy song song không
+    /// giẫm dữ liệu của nhau và không cần dọn dẹp.
+    ///
+    /// Điều kiện duy nhất: DbContext phải có constructor nhận DbContextOptions&lt;T&gt;.
+    /// Đây là khuôn scaffold mặc định của EF nên gần như luôn đúng.
+    ///
+    /// GIỚI HẠN: InMemory KHÔNG phải Oracle. Nó không kiểm tra ràng buộc, không biết
+    /// ORA-12899, và dịch LINQ theo luật C# chứ không phải SQL. Dùng để test LOGIC.
     /// </summary>
     public static class TestDb
     {
-        public static VcbPortalDbContext Create()
+        public static T Create<T>() where T : DbContext
         {
-            var options = new DbContextOptionsBuilder<VcbPortalDbContext>()
+            var options = new DbContextOptionsBuilder<T>()
                 .UseInMemoryDatabase($"test-{Guid.NewGuid()}")
                 .Options;
 
-            return new VcbPortalDbContext(options);
+            return (T)Activator.CreateInstance(typeof(T), options)!;
         }
+    }
 
+    public static class TestDbExtensions
+    {
         /// <summary>
-        /// Thêm một user vào MP_APP_USERS. Tham số đặt tên rõ để chỗ gọi đọc được luôn:
-        /// SeedUser(db, "VATID001", phonepos: 0, visaaccept: null).
-        /// </summary>
-        public static MpAppUser SeedUser(
-            VcbPortalDbContext db,
-            string username,
-            decimal? phonepos = null,
-            decimal? visaaccept = null,
-            decimal? finone = null,
-            string? deviceId = null,
-            decimal? bid = null,
-            decimal? mid = null,
-            decimal? tid = null)
-        {
-            var user = new MpAppUser
-            {
-                Username = username,
-                PhoneposStatus = phonepos,
-                VisaacceptStatus = visaaccept,
-                FinoneStatus = finone,
-                Deviceid = deviceId,
-                Bid = bid,
-                Mid = mid,
-                Tid = tid
-            };
-
-            db.Add(user);
-            db.SaveChanges();
-            return user;
-        }
-
-        /// <summary>
-        /// Thêm các bản ghi đăng ký partner. Truyền dạng ("PHONEPOS", "2") cho gọn:
-        /// SeedRegistrations(db, "VATID001", ("VISAACCEPT", "3"), ("VISAACCEPT", "0"));
+        /// Thêm dữ liệu mẫu rồi lưu ngay. Trả về chính entity đó để test giữ tham chiếu
+        /// mà khẳng định sau khi gọi hàm cần test:
         ///
-        /// STATUS truyền dạng CHUỖI vì cột thật là VARCHAR2(2) — muốn test được cả
-        /// giá trị rác như "X" hay "07" thì không được ép thành số ở đây.
+        ///     var user = db.Seed(new MpAppUser { Username = "VATID001" });
+        ///     await service.RefreshStatusAsync("VATID001");
+        ///     Assert.Equal(2, user.PhoneposStatus);
         /// </summary>
-        public static void SeedRegistrations(
-            VcbPortalDbContext db, string username, params (string Partner, string? Status)[] rows)
+        public static T Seed<T>(this DbContext db, T entity) where T : class
         {
-            var nextRowId = db.MpAppPartnerCardRegs.Count();
+            db.Add(entity);
+            db.SaveChanges();
+            return entity;
+        }
 
-            foreach (var (partner, status) in rows)
-            {
-                db.Add(new MpAppPartnerCardReg
-                {
-                    RowId = ++nextRowId,
-                    Username = username,
-                    Partner = partner,
-                    Status = status,
-                    CreateTime = new DateTime(2026, 1, 1)
-                });
-            }
-
+        /// <summary>Thêm nhiều dòng cùng lúc.</summary>
+        public static void SeedRange<T>(this DbContext db, params T[] entities) where T : class
+        {
+            db.AddRange(entities);
             db.SaveChanges();
         }
     }
