@@ -8,18 +8,15 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <!--
-    Can tham chieu project vi lane Unit/ goi thang vao ham C#.
-    Luu y: lane Api/ KHONG duoc dung reference nay - no phai goi qua HTTP.
-    Khong co gi chan ve mat ky thuat, chi la ky luat. Xem README.
-  -->
   <ItemGroup>
     <ProjectReference Include="..\VcbPortalApi\VcbPortalApi.csproj" />
   </ItemGroup>
 
   <!--
-    Chi 3 package cua template xUnit. KHONG EF InMemory, khong driver DB, khong
-    thu vien mock - can nhung thu do nghia la test do thuoc lane Api/, khong phai Unit/.
+    Chi 3 package cua template xUnit.
+    KHONG EF InMemory, khong driver DB, khong thu vien mock, khong HttpClient.
+    Can bat ky thu nao trong so do nghia la thu dang test khong con la mot don vi
+    thuan - luc do no khong thuoc bo test nay.
   -->
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />

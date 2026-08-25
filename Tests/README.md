@@ -1,134 +1,40 @@
 # Tests
 
-Một project, hai lane. Chạy `dotnet test` là chạy cả hai.
-
-```
-Tests/
-├── Unit/              ← unit test: gọi hàm C# trực tiếp, không DB, không mạng
-│   ├── Services/MpAppUserStatusTests.cs
-│   └── Helpers/HMAC256Tests.cs
-├── Api/               ← API test: gọi HTTP tới server đang chạy
-│   ├── VcbPortalApi/MobilePartnerApiTests.cs
-│   └── AddRedis/
-├── TestSupport/       ← hạ tầng dùng chung cho lane Api
-│   ├── ApiEnv.cs      cấu hình môi trường + [ApiFact] tự skip
-│   ├── Login.cs       tự đăng nhập lấy token, cache cả phiên
-│   ├── ApiClient.cs   gọi HTTP
-│   ├── ApiResult.cs   đọc kết quả
-│   ├── Jwt.cs         đọc claim trong token
-│   └── AssemblyConfig.cs
-└── Tests.csproj
-```
-
-| | `Unit/` | `Api/` |
-|---|---|---|
-| Gọi gì | hàm C# trực tiếp | HTTP tới server |
-| Cần môi trường | không | có |
-| Tốc độ | mili giây | giây |
-| Bắt lỗi gì | quy tắc nghiệp vụ sai | cấu hình sai, xác thực hỏng, schema lệch |
-| Đỏ thì biết lỗi ở đâu | biết chính xác hàm nào | chỉ biết "chuỗi nào đó hỏng" |
-| Chưa cấu hình môi trường | vẫn chạy | tự **skip** |
-
-Hai lane bổ sung nhau, không thay thế nhau.
-
-## Chạy
+Unit test cho `VcbPortalApi`. Kiểm tra **code và quy tắc nghiệp vụ có đúng không** —
+không DB, không mạng, không file, không đồng hồ hệ thống.
 
 ```bash
-dotnet test                                      # ca hai lane
-dotnet test --filter FullyQualifiedName~Unit     # chi unit
-dotnet test --filter FullyQualifiedName~Api      # chi api
+dotnet test
 ```
 
-Lane `Api/` cần biến môi trường, chưa đặt thì skip chứ không fail.
+Không cần cấu hình gì, không cần môi trường nào đang chạy. Không có test nào bị skip —
+thấy `Skipped` là dấu hiệu có gì đó sai chỗ.
 
-`VCB_API_BASEURL` chỉ có nghĩa là **API đang chạy ở đâu** — không nhất thiết là UAT.
-Chạy local là trường hợp thường ngày:
+## Cấu trúc
 
-```powershell
-# Chay API bang F5 truoc, roi lay port trong console hoac Properties/launchSettings.json
-$env:VCB_API_BASEURL  = "http://localhost:5000/api/v1"
-$env:VCB_API_USERNAME = "VATID001"
-$env:VCB_API_PASSWORD = "<mat khau>"
+Thư mục test soi gương thư mục nguồn.
+
+```
+VcbPortalApi/                          Tests/
+├── Services/MpAppUserStatusService.cs  ├── Services/MpAppUserStatusTests.cs
+└── Helpers/HMAC256.cs                  └── Helpers/HMAC256Tests.cs
 ```
 
-Bộ test **tự gọi API login** lấy token, một lần cho cả phiên chạy. Không phải copy
-token thủ công, và không dính chuyện token hết hạn giữa chừng.
+| | Quy ước | Ví dụ |
+|---|---|---|
+| File | `<TênClass>Tests.cs` | `MpAppUserStatusTests.cs` |
+| Namespace | `Tests.<thư mục>` | `Tests.Services` |
+| Hàm test | `<Hàm>_<TìnhHuống>_<KếtQuảMongĐợi>` | `HmacSha256_ReturnsUppercaseHex` |
 
-Ba hằng trong [`TestSupport/Login.cs`](TestSupport/Login.cs) là phỏng đoán — chạy lần
-đầu mà 401 hàng loạt thì kiểm tra đúng chúng: đường dẫn login, tên field trong body,
-tên field chứa token trong response. Lỗi in ra đã kèm sẵn URL và body của lời gọi login.
-
-Muốn bỏ qua bước đăng nhập (API login đang hỏng, hoặc cần test bằng một user cụ thể)
-thì đặt sẵn `VCB_API_TOKEN`.
-
-Trước khi deploy thì đổi sang UAT — chỉ đổi một biến, không sửa code:
-
-```powershell
-$env:VCB_API_BASEURL = "https://uat-host/api/v1"
-```
-
-Chạy local nên dùng URL `http://` chứ không `https://`. Chứng chỉ dev tự ký sẽ bị
-`HttpClient` từ chối, lỗi hiện ra là `SSL connection could not be established` chứ
-không nói gì về chứng chỉ. Buộc phải dùng `https://` thì chạy một lần:
-
-```powershell
-dotnet dev-certs https --trust
-```
-
-**Biến môi trường chỉ giữ thứ đổi theo môi trường hoặc là bí mật.**
-Dữ liệu test — mid, tid, partner code… — là hằng số ngay trong file test, vì chúng
-gắn với endpoint chứ không gắn với môi trường:
-
-```csharp
-private const string Endpoint = "ma/partner/token";
-private const string Partner  = "PHONEPOS";
-private const string Tid      = "40000001";
-private const string Mid      = "68100000000097";
-```
-
-Nếu nhét hết vào biến môi trường thì 20 endpoint sẽ thành 50 biến, quên một cái là
-test đỏ với thông báo khó hiểu.
-
-Một ràng buộc phải nhớ: **`Tid`/`Mid` phải thuộc về user đăng nhập (`VCB_API_USERNAME`)**, nếu
-không controller trả `MidOrTidNotExistUserBid` và không bao giờ chạm được đường thành
-công. Lấy đúng cặp bằng:
-
-```sql
-SELECT USERNAME, BID, MID, TID FROM MP_APP_PARTNER_CARD_REG
-WHERE  UPPER(USERNAME) = UPPER('<username ban dang nhap>');
-```
-
-Trong Visual Studio đừng set tay từng lần — tạo `test.runsettings` cạnh `.sln`:
-
-```xml
-<RunSettings>
-  <RunConfiguration>
-    <EnvironmentVariables>
-      <VCB_API_BASEURL>http://localhost:5000/api/v1</VCB_API_BASEURL>
-      <VCB_API_USERNAME>VATID001</VCB_API_USERNAME>
-      <VCB_API_PASSWORD>...</VCB_API_PASSWORD>
-    </EnvironmentVariables>
-  </RunConfiguration>
-</RunSettings>
-```
-
-**Test** → **Configure Run Settings** → **Select Solution Wide runsettings File**.
-File này chứa mật khẩu thật → thêm vào `.gitignore` ngay.
-
-> **Skip không phải pass.** Đọc số `Skipped`. Trước khi deploy phải có một lần chạy
-> lane `Api/` với `Skipped: 0`.
-
----
-
-# Lane Unit/
-
-Kiểm tra **một đơn vị code cô lập**. Phép thử nhanh: *mở laptop trên máy bay, tắt
-wifi, chạy được không?* Được thì đúng chỗ.
+Tên hàm dài không sao. Khi fail, tên hiện trong log chính là câu mô tả lỗi.
 
 ## Cái gì được vào đây
 
 Chỉ hàm **thuần**: cùng đầu vào luôn cho cùng đầu ra, không đụng gì bên ngoài.
-Bảy thứ khiến một hàm không còn unit test được:
+
+Phép thử nhanh: *mở laptop trên máy bay, tắt wifi, chạy được không?*
+
+Bảy thứ khiến một hàm không unit test được:
 
 | Tránh | Ví dụ trong project |
 |---|---|
@@ -140,17 +46,17 @@ Bảy thứ khiến một hàm không còn unit test được:
 | Biến môi trường | |
 | Static có thể thay đổi | `AppSettings.SignatureSecretUat` |
 
-Dính một trong bảy thứ đó thì để lane `Api/` phủ, đừng cố nhét vào `Unit/`.
-
-Project **không cài** EF InMemory, driver DB hay thư viện mock — cần những thứ đó
-nghĩa là test đó thuộc lane `Api/`.
+Project **không cài** EF InMemory, driver DB, thư viện mock hay `HttpClient`. Cần bất
+kỳ thứ nào trong số đó nghĩa là thứ đang test không còn là một đơn vị thuần.
 
 ## Viết code sao cho unit test được
+
+Đây là phần quan trọng nhất, vì phần lớn logic hiện tại **chưa** ở dạng test được.
 
 Tách **logic quyết định** khỏi **điều phối**:
 
 ```csharp
-// ĐIỀU PHỐI — đọc ghi DB. Không unit test được, để lane Api/ phủ.
+// ĐIỀU PHỐI — đọc ghi DB, gọi API, ghi log. Không unit test được.
 public async Task RefreshStatusAsync(string username, CancellationToken ct)
 {
     var rows = await _db.Set<MpAppPartnerCardReg>()...
@@ -163,7 +69,12 @@ public static decimal? ResolveForPartner(
     IEnumerable<(string? Partner, string? Status)> rows, string partner) { ... }
 ```
 
-Phần lớn bug nghiệp vụ nằm ở hàm thuần. Phần điều phối thì API test bắt tốt hơn.
+Áp dụng dần với **code mới**, đừng đi refactor loạt controller cũ. Viết endpoint mới
+thì tách khối quyết định ra `static` ngay từ đầu — lúc đó gần như không tốn công thêm.
+
+Ví dụ với `MobilePartnerController.IssueSsoToken`: bảy trong mười ba nhánh chỉ dựa
+trên giá trị đã có trong tay (role, bid/mid của user, mid/tid client gửi lên). Rút
+chúng ra một hàm `static` khoảng 20 dòng là unit test được ngay, không cần DB.
 
 ## Kiểm tra test có thật sự bắt được lỗi
 
@@ -171,104 +82,28 @@ Test xanh chưa chắc có ích. Cách rẻ nhất: **cố tình phá code** r�
 
 Làm việc này với `MpAppUserStatusTests` và nó phát hiện một chuyện đáng chú ý:
 
-- Đảo nhánh `2..6` với nhánh `toàn 7` → **không test nào đỏ**. Vì hai điều kiện đó
-  loại trừ nhau, đảo cũng không đổi hành vi.
-- Đảo nhánh `toàn 7` với nhánh `toàn 0/7` → **2 test đỏ** (`"7"` và `"7,7"`). Vì tập
-  chỉ có 7 thoả cả hai; đảo lại thì user đã hủy bị tính thành "Đã đăng ký".
+- Đảo nhánh `2..6` với nhánh `toàn 7` → **không test nào đỏ**. Hai điều kiện đó loại
+  trừ nhau, đảo cũng không đổi hành vi.
+- Đảo nhánh `toàn 7` với nhánh `toàn 0/7` → **2 test đỏ** (`"7"` và `"7,7"`). Tập chỉ
+  có 7 thoả cả hai; đảo lại thì user đã hủy bị tính thành "Đã đăng ký".
 
 Comment trong `ResolveStatus` trước đây ghi thứ tự bắt buộc là để `{2,7}` ra "Kích
 hoạt" — không chính xác. Ràng buộc thật nằm ở hai nhánh cuối. Đã sửa comment.
 
 Đó là giá trị của việc phá code thử: phân biệt ràng buộc thật với ràng buộc tưởng tượng.
 
----
+## Bộ test này KHÔNG trả lời được gì
 
-# Lane Api/
+Theo đúng định nghĩa, unit test không chạm cấu hình và không chạm môi trường. Những
+thứ sau vẫn xanh hết dù có sai:
 
-Gọi API **thật đang chạy** qua HTTP. Không mock, không seed.
+- cấu hình sai, build nhầm môi trường, nối nhầm database
+- `[Authorize]` hỏng, routing sai, middleware lỗi
+- schema Oracle lệch với code (`ORA-00904`, `ORA-12899`)
+- câu SQL viết tay sai cú pháp
 
-> Đây là API test (end-to-end), **không phải unit test**. Gọi đúng tên khi báo cáo.
-
-## Thêm test cho endpoint mới
-
-Copy `Api/VcbPortalApi/MobilePartnerApiTests.cs`. Ba nhóm, viết theo thứ tự:
-
-```csharp
-private const string Endpoint = "ma/partner/token";
-
-// 1. Khong co quyen -> 401
-var api = new ApiClient(token: null);            // khong gan Authorization
-var api = new ApiClient(token: "not-a-valid-jwt");
-
-// 2. Dau vao sai -> dung ma loi nghiep vu
-var api = new ApiClient();
-var result = await api.PostFormAsync(Endpoint, ("PartnerCode", null));
-Assert.True(result.Field("code")?.Contains("PartnerCode") == true, result.Describe);
-
-// 3. Duong thanh cong
-var result = await api.PostFormAsync(Endpoint, ("PartnerCode", Partner), ("Tid", Tid));
-Assert.True(result.IsSuccess, result.Describe);
-```
-
-Service khác thì `new ApiClient(ApiEnv.AddRedis)` và `[ApiFact(ApiEnv.AddRedis)]`.
-
-**Luôn truyền `result.Describe` vào Assert** — nó in method, URL, status và body, đủ
-để dựng lại lời gọi từ log Test Explorer mà không phải mở Postman.
-
-## Kỷ luật quan trọng nhất của lane này
-
-Project **có** `ProjectReference` tới `VcbPortalApi` vì lane `Unit/` cần. Nghĩa là
-code trong `Api/` **có thể** gọi thẳng vào service hay đọc `AppSettings` — nhưng
-đừng bao giờ làm vậy.
-
-Lane `Api/` chỉ được nói chuyện qua HTTP. Gọi thẳng vào code là mất hết ý nghĩa: nó
-không còn kiểm tra routing, `[Authorize]`, middleware, cấu hình môi trường nữa.
-
-Trước khi gộp hai project thì điều này được đảm bảo bằng kỹ thuật. Giờ chỉ còn kỷ
-luật — đây là cái giá của việc gộp.
-
-## Ba quyết định thiết kế
-
-**HttpClient dùng chung cho cả phiên chạy, mỗi service một cái.** Tạo mới mỗi test là
-lỗi kinh điển của .NET: mỗi `HttpClient` giữ connection pool riêng, socket đóng rồi
-vẫn nằm ở `TIME_WAIT` khoảng 4 phút, chạy vài chục test là cạn cổng và bắt đầu lỗi
-`address in use` rải rác. Vì client dùng chung nên token gắn theo **từng request**,
-không đặt mặc định trên client; nhờ vậy test nhánh 401 vẫn dùng chung client.
-
-**Tắt chạy song song** (`TestSupport/AssemblyConfig.cs`). Lane `Api/` đánh vào một môi
-trường dùng chung; song song sẽ dội request cùng lúc và làm phiền người khác đang
-test tay. Nó cũng làm lane `Unit/` chạy tuần tự — với 30 test thì không đáng kể.
-
-**`Field()` tìm không phân biệt hoa thường, tìm cả object con.** Viết lỏng có chủ ý:
-`code`, `Code`, `resCode` đều lấy được, khuôn response đổi không phải sửa test.
-
-## Giới hạn — biết trước để khỏi mất công
-
-| | |
-|---|---|
-| Chậm | mỗi test một vòng mạng |
-| Dễ đỏ oan | môi trường sập, token hết hạn, người khác sửa dữ liệu |
-| Không ép được trạng thái DB | nhánh "user chưa có session" không chạm tới được |
-| Không chạy được trong pipeline build | phải có môi trường sống |
-
-**Token sống khoảng 42 phút.** Thấy tất cả test đỏ với 401 thì việc đầu tiên là lấy
-token mới, đừng vội nghi code. Token phải cùng môi trường với base URL — token UAT
-gọi vào PRD sẽ 401 vì chữ ký không khớp.
-
----
-
-## Đặt tên
-
-| | Quy ước | Ví dụ |
-|---|---|---|
-| File | `<TênClass>Tests.cs` | `MpAppUserStatusTests.cs` |
-| Thư mục | soi gương thư mục nguồn | `Unit/Services/`, `Unit/Helpers/` |
-| Hàm test | `<Hàm>_<TìnhHuống>_<KếtQuảMongĐợi>` | `HmacSha256_ReturnsUppercaseHex` |
-
-Ngoại lệ: file trong `Api/VcbPortalApi/` khai namespace `Tests.Api` chứ không phải
-`Tests.Api.VcbPortalApi`. Một namespace tên `VcbPortalApi` lồng trong `Tests.Api` sẽ
-che khuất namespace gốc `VcbPortalApi` của project API, làm các `using` bên trong
-không phân giải đúng.
+Muốn phủ những thứ đó cần một loại test khác — gọi API thật qua HTTP. Đó là việc riêng,
+không phải mở rộng của bộ này.
 
 ## Hai cái bẫy đã gặp
 
