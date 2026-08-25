@@ -5,9 +5,12 @@ namespace Tests.TestSupport
     ///
     /// Mỗi service một base URL riêng, nên một bộ test phục vụ được cả solution:
     ///
-    ///   VCB_API_BASEURL    https://uat-host/api/v1     cho VcbPortalApi
-    ///   ADDREDIS_BASEURL   https://uat-host:5001       cho AddRedis
+    ///   VCB_API_BASEURL    http://localhost:5000/api/v1   cho VcbPortalApi
+    ///   ADDREDIS_BASEURL   http://localhost:5001          cho AddRedis
     ///   VCB_API_TOKEN      bearer token cua user da dang nhap
+    ///
+    /// BASEURL chi co nghia la "API dang chay o dau" - local hay UAT deu duoc.
+    /// Chay local la truong hop thuong ngay; truoc khi deploy thi doi sang UAT.
     ///
     /// CHỈ đặt ở đây những gì ĐỔI THEO MÔI TRƯỜNG hoặc là BÍ MẬT.
     ///
@@ -26,7 +29,7 @@ namespace Tests.TestSupport
     {
         // Tên biến môi trường cũng là "khoá" của service. Dùng làm tham số cho
         // [ApiFact] và ApiClient: [ApiFact(ApiEnv.AddRedis)].
-        public const string VcbPortalApi = "VCB_API_BASEURL";
+        public const string VcbPortalApi = ".";
         public const string AddRedis = "ADDREDIS_BASEURL";
 
         public static string? Token { get; } = Read("VCB_API_TOKEN");

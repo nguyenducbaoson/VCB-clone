@@ -33,11 +33,29 @@ dotnet test --filter FullyQualifiedName~Unit     # chi unit
 dotnet test --filter FullyQualifiedName~Api      # chi api
 ```
 
-Lane `Api/` cần biến môi trường, chưa đặt thì skip chứ không fail:
+Lane `Api/` cần biến môi trường, chưa đặt thì skip chứ không fail.
+
+`VCB_API_BASEURL` chỉ có nghĩa là **API đang chạy ở đâu** — không nhất thiết là UAT.
+Chạy local là trường hợp thường ngày:
+
+```powershell
+# Chay API bang F5 truoc, roi lay port trong console hoac Properties/launchSettings.json
+$env:VCB_API_BASEURL = "http://localhost:5000/api/v1"
+$env:VCB_API_TOKEN   = "<bearer token lay sau khi dang nhap>"
+```
+
+Trước khi deploy thì đổi sang UAT — chỉ đổi một biến, không sửa code:
 
 ```powershell
 $env:VCB_API_BASEURL = "https://uat-host/api/v1"
-$env:VCB_API_TOKEN   = "<bearer token cua mot user da dang nhap>"
+```
+
+Chạy local nên dùng URL `http://` chứ không `https://`. Chứng chỉ dev tự ký sẽ bị
+`HttpClient` từ chối, lỗi hiện ra là `SSL connection could not be established` chứ
+không nói gì về chứng chỉ. Buộc phải dùng `https://` thì chạy một lần:
+
+```powershell
+dotnet dev-certs https --trust
 ```
 
 Chỉ hai biến. **Biến môi trường chỉ giữ thứ đổi theo môi trường hoặc là bí mật.**
@@ -69,7 +87,7 @@ Trong Visual Studio đừng set tay từng lần — tạo `test.runsettings` c�
 <RunSettings>
   <RunConfiguration>
     <EnvironmentVariables>
-      <VCB_API_BASEURL>https://uat-host/api/v1</VCB_API_BASEURL>
+      <VCB_API_BASEURL>http://localhost:5000/api/v1</VCB_API_BASEURL>
       <VCB_API_TOKEN>eyJhbGciOi...</VCB_API_TOKEN>
     </EnvironmentVariables>
   </RunConfiguration>
@@ -170,7 +188,7 @@ var result = await api.PostFormAsync(Endpoint, ("PartnerCode", null));
 Assert.True(result.Field("code")?.Contains("PartnerCode") == true, result.Describe);
 
 // 3. Duong thanh cong
-var result = await api.PostFormAsync(Endpoint, ("PartnerCode", "PHONEPOS"), ("Tid", ApiEnv.Tid));
+var result = await api.PostFormAsync(Endpoint, ("PartnerCode", Partner), ("Tid", Tid));
 Assert.True(result.IsSuccess, result.Describe);
 ```
 
