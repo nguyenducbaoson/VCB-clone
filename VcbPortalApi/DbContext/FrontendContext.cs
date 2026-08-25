@@ -20,7 +20,7 @@ namespace VcbPortalApi.DbContext
         {
             b.Entity<MpSession>().HasKey(x => x.UserName);
             b.Entity<MpUsersCommon>().HasKey(x => x.UserName);
-            b.Entity<MpAppUser>().HasKey(x => x.Username);
+            b.Entity<MpAppUser>().HasKey(x => x.UserName);
         }
     }
 

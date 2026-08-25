@@ -22,7 +22,7 @@ namespace VcbPortalApi.DbContext
             // Không gọi ToTable() ở đây: ToTable thuộc EF Core Relational, mà bản khung
             // chỉ tham chiếu provider InMemory. Ánh xạ tên bảng Oracle
             // (MP_APP_USERS, MP_APP_PARTNER_CARD_REG, MP_SSO_LOG) là việc của DbContext thật.
-            b.Entity<MpAppUser>().HasKey(x => x.Username);
+            b.Entity<MpAppUser>().HasKey(x => x.UserName);
 
             // Bảng thật không có khoá chính — một username nhiều dòng là bình thường.
             // Nhưng entity keyless thì EF không cho Add(), nên dùng khoá giả RowId.

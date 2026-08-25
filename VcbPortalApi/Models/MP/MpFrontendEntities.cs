@@ -17,6 +17,9 @@ namespace VcbPortalApi.Models.MP
         public string UserName { get; set; } = string.Empty;
         public string? Email { get; set; }
         public decimal? RoleId { get; set; }
+
+        /// <summary>Trạng thái user. "D" = đã vô hiệu hoá.</summary>
+        public string? Status { get; set; }
     }
 
     /// <summary>

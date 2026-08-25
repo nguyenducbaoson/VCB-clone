@@ -63,17 +63,17 @@ namespace VcbPortalApi.Services
             // Chỉ cần 2 cột nên projection cho nhẹ.
             var registrations = await _db.Set<MpAppPartnerCardReg>()
                 .AsNoTracking()
-                .Where(r => r.Username != null && r.Username.ToUpper() == normalized)
+                .Where(r => r.UserName != null && r.UserName.ToUpper() == normalized)
                 .Select(r => new { r.Partner, r.Status })
                 .ToListAsync(ct);
 
             var user = await _db.Set<MpAppUser>()
-                .FirstOrDefaultAsync(u => u.Username != null && u.Username.ToUpper() == normalized, ct);
+                .FirstOrDefaultAsync(u => u.UserName != null && u.UserName.ToUpper() == normalized, ct);
 
             if (user is null)
             {
                 _logger.LogWarning(
-                    "Không tìm thấy {Username} trong MP_APP_USERS, bỏ qua cập nhật trạng thái", username);
+                    "Không tìm thấy {UserName} trong MP_APP_USERS, bỏ qua cập nhật trạng thái", username);
                 return;
             }
 
@@ -81,7 +81,7 @@ namespace VcbPortalApi.Services
 
             // Chẩn đoán: in đúng những dòng service đọc được. Cả 2 cột cùng ra một giá trị
             // thường là do khâu GHI đẻ ra dòng cho cả hai partner, không phải khâu tính.
-            _logger.LogDebug("MP_APP_PARTNER_CARD_REG của {Username}: {Rows}",
+            _logger.LogDebug("MP_APP_PARTNER_CARD_REG của {UserName}: {Rows}",
                 username,
                 rows.Count == 0
                     ? "(không có dòng nào)"
@@ -94,9 +94,9 @@ namespace VcbPortalApi.Services
                 return;
 
             _logger.LogInformation(
-                "Cập nhật trạng thái {Username}: PHONEPOS {OldPhonepos}->{NewPhonepos}, " +
+                "Cập nhật trạng thái {UserName}: PHONEPOS {OldPhonepos}->{NewPhonepos}, " +
                 "VISAACCEPT {OldVisa}->{NewVisa}",
-                user.Username, user.PhoneposStatus, phonepos, user.VisaacceptStatus, visaaccept);
+                user.UserName, user.PhoneposStatus, phonepos, user.VisaacceptStatus, visaaccept);
 
             user.PhoneposStatus = phonepos;
             user.VisaacceptStatus = visaaccept;

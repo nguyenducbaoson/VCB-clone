@@ -11,14 +11,14 @@ namespace VcbPortalApi.Models.SSO
     /// <summary>MP_APP_USERS</summary>
     public class MpAppUser
     {
-        public string? Username { get; set; }
+        public string? UserName { get; set; }
         public decimal? RoleId { get; set; }
         public decimal? Bid { get; set; }
         public decimal? Mid { get; set; }
         public decimal? Tid { get; set; }
         public string? FcmToken { get; set; }
         public string? Fid { get; set; }
-        public string? Deviceid { get; set; }
+        public string? DeviceId { get; set; }
         public string? Os { get; set; }
         public string? Note { get; set; }
         public decimal? BranchId { get; set; }
@@ -38,7 +38,7 @@ namespace VcbPortalApi.Models.SSO
         /// </summary>
         public int RowId { get; set; }
 
-        public string? Username { get; set; }
+        public string? UserName { get; set; }
         public decimal Bid { get; set; }
         public decimal Mid { get; set; }
         public decimal Tid { get; set; }

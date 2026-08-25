@@ -16,7 +16,7 @@ using VcbPortalApi.StaticData.MP;
 // action. Xem VcbPortalApi.Tests/Controllers/Mobile/MobilePartnerControllerTests.cs.
 //
 // Điểm khác duy nhất so với bản thật: entity MpAppUser ở repo này đặt property là
-// Username (bản thật là UserName).
+// UserName (bản thật là UserName).
 // ─────────────────────────────────────────────────────────────────────────────
 namespace VcbPortalApi.Controllers.Mobile
 {
@@ -67,7 +67,7 @@ namespace VcbPortalApi.Controllers.Mobile
                 .FirstOrDefaultAsync();
 
             var app = await context.MpAppUsers.AsNoTracking()
-                .Where(x => x.Username == userName)
+                .Where(x => x.UserName == userName)
                 .Select(x => new { x.Bid, x.Mid })
                 .FirstOrDefaultAsync();
 

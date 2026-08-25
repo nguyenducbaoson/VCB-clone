@@ -58,9 +58,9 @@ namespace VcbPortalApi.Services
             if (mismatch is not null)
             {
                 _logger.LogWarning(
-                    "Sai lệch dữ liệu tại {Field} (mode {Mode}). SSO={SsoValue}, DB={DbValue}, username={Username}",
+                    "Sai lệch dữ liệu tại {Field} (mode {Mode}). SSO={SsoValue}, DB={DbValue}, username={UserName}",
                     mismatch.Field, _authOptions.HierarchyCompare,
-                    mismatch.SsoValue, mismatch.DbValue, user.Username);
+                    mismatch.SsoValue, mismatch.DbValue, user.UserName);
 
                 var code = mismatch.Field == nameof(MpSsoUserInfo.MerchantUsername)
                     ? MpSsoResultCode.UsernameMismatch
@@ -75,11 +75,11 @@ namespace VcbPortalApi.Services
                 return ApiResponse<MerchantSsoLoginResult>.Fail(failure.Code, failure.Message);
             }
 
-            var (requirePassword, reason) = EvaluateFirstAuth(request.Client.DeviceId, user.Deviceid);
+            var (requirePassword, reason) = EvaluateFirstAuth(request.Client.DeviceId, user.DeviceId);
 
             _logger.LogInformation(
-                "SSO thành công cho {Username} (cif {Cif}). requirePassword={RequirePassword} ({Reason})",
-                user.Username, info.UserCif, requirePassword, reason);
+                "SSO thành công cho {UserName} (cif {Cif}). requirePassword={RequirePassword} ({Reason})",
+                user.UserName, info.UserCif, requirePassword, reason);
 
             await WriteSsoLogAsync(request.AccessTokenSSO, request.Client, outcome,
                 new Failure(MpSsoResultCode.Success, "Success"),
@@ -88,7 +88,7 @@ namespace VcbPortalApi.Services
 
             return ApiResponse<MerchantSsoLoginResult>.Ok(new MerchantSsoLoginResult
             {
-                Username = user.Username ?? string.Empty,
+                Username = user.UserName ?? string.Empty,
                 Bid = user.Bid,
                 Mid = user.Mid,
                 Tid = user.Tid,
@@ -113,7 +113,7 @@ namespace VcbPortalApi.Services
             MpSsoUserInfo? Info, MpAppUser? User, Failure? Error, int? SsoResCode);
 
         /// <summary>
-        /// Username đem tra DB lấy từ othersInfo.userDes của SSO — KHÔNG lấy từ request.
+        /// UserName đem tra DB lấy từ othersInfo.userDes của SSO — KHÔNG lấy từ request.
         /// Client chỉ gửi token, nên không thể đổi username để mượn tài khoản người khác.
         /// </summary>
         private async Task<VerifyOutcome> VerifyAndResolveUserAsync(
@@ -155,7 +155,7 @@ namespace VcbPortalApi.Services
             var user = await FindUserAsync(info.MerchantUsername, ct);
             if (user is null)
             {
-                _logger.LogWarning("Không tìm thấy user {Username} trong MP_APP_USERS", info.MerchantUsername);
+                _logger.LogWarning("Không tìm thấy user {UserName} trong MP_APP_USERS", info.MerchantUsername);
                 return new VerifyOutcome(info, null, new Failure(
                     MpSsoResultCode.UserNotFound, "Tài khoản DigiMerchant không tồn tại."), verify.ResCode);
             }
@@ -167,8 +167,8 @@ namespace VcbPortalApi.Services
         /// Luồng này chỉ ĐỌC MP_APP_USERS nên luôn AsNoTracking.
         ///
         /// TODO(entity): tên property giả định theo quy tắc scaffold EF từ cột Oracle —
-        /// USERNAME→Username, ROLE_ID→RoleId, BID→Bid, MID→Mid, TID→Tid, FCM_TOKEN→FcmToken,
-        /// FID→Fid, DEVICEID→Deviceid, OS→Os, NOTE→Note, BRANCH_ID→BranchId.
+        /// USERNAME→UserName, ROLE_ID→RoleId, BID→Bid, MID→Mid, TID→Tid, FCM_TOKEN→FcmToken,
+        /// FID→Fid, DEVICEID→DeviceId, OS→Os, NOTE→Note, BRANCH_ID→BranchId.
         /// Nếu entity thật đặt tên khác thì compiler sẽ chỉ thẳng vào chỗ cần sửa.
         /// </summary>
         private async Task<MpAppUser?> FindUserAsync(string username, CancellationToken ct)
@@ -177,7 +177,7 @@ namespace VcbPortalApi.Services
 
             return await _db.Set<MpAppUser>()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Username != null && u.Username.ToUpper() == normalized, ct);
+                .FirstOrDefaultAsync(u => u.UserName != null && u.UserName.ToUpper() == normalized, ct);
         }
 
         private static Failure MapSsoFailure(MpSsoVerifyResult verify) => verify.Failure switch
@@ -248,15 +248,15 @@ namespace VcbPortalApi.Services
         /// <summary>
         /// So khớp từng trường, trả về trường lệch đầu tiên (null nếu khớp hết).
         ///
-        /// Username là chốt định danh — luôn so chuỗi chính xác, không phân biệt hoa thường.
+        /// UserName là chốt định danh — luôn so chuỗi chính xác, không phân biệt hoa thường.
         /// BID/MID/TID là kiểm tra phụ, cách so tuỳ MpAuth:HierarchyCompare vì SSO trả
         /// "B001" còn cột Oracle là NUMBER.
         /// null/rỗng ở cả hai phía coi là khớp (user cấp BID không có MID/TID).
         /// </summary>
         private FieldMismatch? FindMismatch(MpSsoUserInfo info, MpAppUser user)
         {
-            if (!TextMatches(info.MerchantUsername, user.Username))
-                return new FieldMismatch(nameof(MpSsoUserInfo.MerchantUsername), info.MerchantUsername, user.Username);
+            if (!TextMatches(info.MerchantUsername, user.UserName))
+                return new FieldMismatch(nameof(MpSsoUserInfo.MerchantUsername), info.MerchantUsername, user.UserName);
 
             if (_authOptions.HierarchyCompare == HierarchyCompareMode.Skip)
                 return null;
