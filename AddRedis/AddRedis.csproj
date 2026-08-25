@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- FILE KHUNG. Project AddRedis co that trong solution nhung khong lien quan
+       den luong SSO/trang thai partner. Dung o day chi de cay thu muc giong ban that. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

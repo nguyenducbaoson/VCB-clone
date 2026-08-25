@@ -36,3 +36,6 @@ appsettings.Local.json
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Cau hinh ket noi UAT cho lane test tich hop - KHONG commit
+appsettings.Test.json

@@ -1,0 +1,4 @@
+@AddRedis_HostAddress = http://localhost:5000
+
+GET {{AddRedis_HostAddress}}/
+Accept: application/json

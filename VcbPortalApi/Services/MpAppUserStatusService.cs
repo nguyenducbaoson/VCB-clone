@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VcbPortalApi.DbContext;
 using VcbPortalApi.Models.SSO;
 
 namespace VcbPortalApi.Services

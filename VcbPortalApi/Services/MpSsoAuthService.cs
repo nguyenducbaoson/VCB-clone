@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using VcbPortalApi.DbContext;
 using VcbPortalApi.Models.SSO;
 using VcbPortalApi.Services.Sso;
 
