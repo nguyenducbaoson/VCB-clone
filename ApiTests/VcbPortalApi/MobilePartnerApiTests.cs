@@ -25,7 +25,7 @@ namespace ApiTests.VcbPortalApi
         [ApiFact]
         public async Task IssueSsoToken_KhongGuiToken_TraVe401()
         {
-            using var api = new ApiClient(token: null);   // không gắn Authorization
+            var api = new ApiClient(token: null);   // không gắn Authorization
 
             var res = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
@@ -38,7 +38,7 @@ namespace ApiTests.VcbPortalApi
         [ApiFact]
         public async Task IssueSsoToken_TokenRac_TraVe401()
         {
-            using var api = new ApiClient(token: "day-khong-phai-jwt");
+            var api = new ApiClient(token: "day-khong-phai-jwt");
 
             var res = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
@@ -56,7 +56,7 @@ namespace ApiTests.VcbPortalApi
         [InlineData("   ")]
         public async Task IssueSsoToken_ThieuPartnerCode_TraVeLoiPartnerCodeEmpty(string? partnerCode)
         {
-            using var api = new ApiClient();
+            var api = new ApiClient();
 
             var res = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", partnerCode),
@@ -69,7 +69,7 @@ namespace ApiTests.VcbPortalApi
         [ApiFact]
         public async Task IssueSsoToken_ThieuTid_KhongPhatToken()
         {
-            using var api = new ApiClient();
+            var api = new ApiClient();
 
             var res = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner));   // không gửi Tid
@@ -83,7 +83,7 @@ namespace ApiTests.VcbPortalApi
         [ApiFact]
         public async Task IssueSsoToken_HopLe_TraVeToken()
         {
-            using var api = new ApiClient();
+            var api = new ApiClient();
 
             var res = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
@@ -98,7 +98,7 @@ namespace ApiTests.VcbPortalApi
         [ApiFact]
         public async Task IssueSsoToken_TokenTraVe_CoDayDuClaim()
         {
-            using var api = new ApiClient();
+            var api = new ApiClient();
 
             var res = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
@@ -123,7 +123,7 @@ namespace ApiTests.VcbPortalApi
         [ApiFact]
         public async Task IssueSsoToken_TokenPartnerKhongSongLauHonTokenUser()
         {
-            using var api = new ApiClient();
+            var api = new ApiClient();
 
             var res = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
