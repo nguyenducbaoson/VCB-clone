@@ -11,6 +11,10 @@ Tests/
 │   ├── VcbPortalApi/MobilePartnerApiTests.cs
 │   └── AddRedis/
 ├── TestSupport/       ← hạ tầng dùng chung cho lane Api
+│   ├── ApiClient.cs   gọi HTTP + đọc cấu hình môi trường + [ApiFact] tự skip
+│   ├── ApiResult.cs   đọc kết quả trả về
+│   ├── Jwt.cs         đọc claim trong token
+│   └── AssemblyConfig.cs  tắt chạy song song
 └── Tests.csproj
 ```
 
