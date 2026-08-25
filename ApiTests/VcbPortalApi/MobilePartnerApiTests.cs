@@ -23,29 +23,29 @@ namespace ApiTests.VcbPortalApi
         // ── 1. Không có quyền ───────────────────────────────────────────────────
 
         [ApiFact]
-        public async Task IssueSsoToken_KhongGuiToken_TraVe401()
+        public async Task IssueSsoToken_NoBearerToken_Returns401()
         {
             var api = new ApiClient(token: null);   // không gắn Authorization
 
-            var res = await api.PostFormAsync(Endpoint,
+            var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
                 ("Tid", ApiEnv.Tid));
 
-            Assert.True(res.Status == HttpStatusCode.Unauthorized,
-                $"Goi khong co token phai bi tu choi 401.\n{res.MoTa}");
+            Assert.True(result.Status == HttpStatusCode.Unauthorized,
+                $"Goi khong co token phai bi tu choi 401.\n{result.Describe}");
         }
 
         [ApiFact]
-        public async Task IssueSsoToken_TokenRac_TraVe401()
+        public async Task IssueSsoToken_MalformedBearerToken_Returns401()
         {
-            var api = new ApiClient(token: "day-khong-phai-jwt");
+            var api = new ApiClient(token: "not-a-valid-jwt");
 
-            var res = await api.PostFormAsync(Endpoint,
+            var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
                 ("Tid", ApiEnv.Tid));
 
-            Assert.True(res.Status == HttpStatusCode.Unauthorized,
-                $"Token rac phai bi tu choi 401.\n{res.MoTa}");
+            Assert.True(result.Status == HttpStatusCode.Unauthorized,
+                $"Token rac phai bi tu choi 401.\n{result.Describe}");
         }
 
         // ── 2. Đầu vào sai ──────────────────────────────────────────────────────
@@ -54,60 +54,60 @@ namespace ApiTests.VcbPortalApi
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public async Task IssueSsoToken_ThieuPartnerCode_TraVeLoiPartnerCodeEmpty(string? partnerCode)
+        public async Task IssueSsoToken_MissingPartnerCode_ReturnsPartnerCodeEmpty(string? partnerCode)
         {
             var api = new ApiClient();
 
-            var res = await api.PostFormAsync(Endpoint,
+            var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", partnerCode),
                 ("Tid", ApiEnv.Tid));
 
-            Assert.True(res.Field("code")?.Contains("PartnerCode", StringComparison.OrdinalIgnoreCase) == true,
-                $"Thieu partnerCode phai tra ma loi PartnerCodeEmpty.\n{res.MoTa}");
+            Assert.True(result.Field("code")?.Contains("PartnerCode", StringComparison.OrdinalIgnoreCase) == true,
+                $"Thieu partnerCode phai tra ma loi PartnerCodeEmpty.\n{result.Describe}");
         }
 
         [ApiFact]
-        public async Task IssueSsoToken_ThieuTid_KhongPhatToken()
+        public async Task IssueSsoToken_MissingTid_DoesNotIssueToken()
         {
             var api = new ApiClient();
 
-            var res = await api.PostFormAsync(Endpoint,
+            var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner));   // không gửi Tid
 
-            Assert.True(res.Field("token") is null,
-                $"Thieu tid ma van phat token la sai.\n{res.MoTa}");
+            Assert.True(result.Field("token") is null,
+                $"Thieu tid ma van phat token la sai.\n{result.Describe}");
         }
 
         // ── 3. Đường thành công ─────────────────────────────────────────────────
 
         [ApiFact]
-        public async Task IssueSsoToken_HopLe_TraVeToken()
+        public async Task IssueSsoToken_ValidRequest_ReturnsToken()
         {
             var api = new ApiClient();
 
-            var res = await api.PostFormAsync(Endpoint,
+            var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
                 ("Mid", ApiEnv.Mid),
                 ("Tid", ApiEnv.Tid));
 
-            Assert.True(res.Status == HttpStatusCode.OK, $"Mong doi HTTP 200.\n{res.MoTa}");
-            Assert.False(string.IsNullOrWhiteSpace(res.Field("token")),
-                $"Response khong co token.\n{res.MoTa}");
+            Assert.True(result.IsSuccess, $"Mong doi HTTP 2xx.\n{result.Describe}");
+            Assert.False(string.IsNullOrWhiteSpace(result.Field("token")),
+                $"Response khong co token.\n{result.Describe}");
         }
 
         [ApiFact]
-        public async Task IssueSsoToken_TokenTraVe_CoDayDuClaim()
+        public async Task IssueSsoToken_ReturnedToken_ContainsExpectedClaims()
         {
             var api = new ApiClient();
 
-            var res = await api.PostFormAsync(Endpoint,
+            var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
                 ("Mid", ApiEnv.Mid),
                 ("Tid", ApiEnv.Tid));
 
-            var claims = Jwt.DocClaim(res.Field("token"));
+            var claims = Jwt.ReadClaims(result.Field("token"));
 
-            Assert.True(claims.Count > 0, $"Khong doc duoc claim trong token.\n{res.MoTa}");
+            Assert.True(claims.Count > 0, $"Khong doc duoc claim trong token.\n{result.Describe}");
             Assert.True(claims.ContainsKey("session_id"), "Token thieu claim session_id.");
             Assert.True(claims.ContainsKey("partner_code"), "Token thieu claim partner_code.");
             Assert.Equal(ApiEnv.Partner, claims["partner_code"]);
@@ -121,24 +121,24 @@ namespace ApiTests.VcbPortalApi
         /// Sai chỗ này là session thu hồi rồi mà partner SDK vẫn dùng được.
         /// </summary>
         [ApiFact]
-        public async Task IssueSsoToken_TokenPartnerKhongSongLauHonTokenUser()
+        public async Task IssueSsoToken_PartnerTokenDoesNotOutliveUserToken()
         {
             var api = new ApiClient();
 
-            var res = await api.PostFormAsync(Endpoint,
+            var result = await api.PostFormAsync(Endpoint,
                 ("PartnerCode", ApiEnv.Partner),
                 ("Mid", ApiEnv.Mid),
                 ("Tid", ApiEnv.Tid));
 
-            var hanPartner = Jwt.HanUtc(res.Field("token"));
-            var hanUser = Jwt.HanUtc(ApiEnv.Token);
+            var partnerExpiry = Jwt.ExpiresUtc(result.Field("token"));
+            var userExpiry = Jwt.ExpiresUtc(ApiEnv.Token);
 
-            Assert.True(hanPartner is not null, $"Token tra ve khong co han (exp).\n{res.MoTa}");
-            Assert.True(hanUser is not null,
+            Assert.True(partnerExpiry is not null, $"Token tra ve khong co han (exp).\n{result.Describe}");
+            Assert.True(userExpiry is not null,
                 "VCB_API_TOKEN khong doc duoc han — kiem tra lai token dat trong bien moi truong.");
 
-            Assert.True(hanPartner <= hanUser!.Value.AddSeconds(2),
-                $"Token partner het han {hanPartner:O}, sau ca token user {hanUser:O}. " +
+            Assert.True(partnerExpiry <= userExpiry!.Value.AddSeconds(2),
+                $"Token partner het han {partnerExpiry:O}, sau ca token user {userExpiry:O}. " +
                 $"Thu hoi session roi ma partner SDK van dung duoc.");
         }
     }

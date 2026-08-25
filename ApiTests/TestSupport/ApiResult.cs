@@ -7,11 +7,12 @@ namespace ApiTests.TestSupport
     /// Kết quả một lời gọi API.
     ///
     /// Giữ nguyên body dạng chuỗi thay vì parse sẵn thành object: khi test đỏ,
-    /// <see cref="MoTa"/> in ra đúng những gì API trả về, khỏi phải mở Postman gọi lại.
+    /// <see cref="Describe"/> in ra đúng những gì API trả về, khỏi phải mở Postman
+    /// gọi lại.
     /// </summary>
     public sealed record ApiResult(string Method, string? Path, HttpStatusCode Status, string Body)
     {
-        public bool ThanhCong => (int)Status is >= 200 and < 300;
+        public bool IsSuccess => (int)Status is >= 200 and < 300;
 
         /// <summary>
         /// Đọc một field trong JSON trả về, KHÔNG phân biệt hoa thường và tìm cả trong
@@ -19,14 +20,14 @@ namespace ApiTests.TestSupport
         /// "code"/"Code"/"resCode" đều lấy được mà không phải sửa test.
         /// Không có field hoặc body không phải JSON thì trả null.
         /// </summary>
-        public string? Field(string ten)
+        public string? Field(string name)
         {
             if (string.IsNullOrWhiteSpace(Body)) return null;
 
             try
             {
-                using var doc = JsonDocument.Parse(Body);
-                return Tim(doc.RootElement, ten);
+                using var document = JsonDocument.Parse(Body);
+                return Find(document.RootElement, name);
             }
             catch (JsonException)
             {
@@ -34,29 +35,29 @@ namespace ApiTests.TestSupport
             }
         }
 
-        private static string? Tim(JsonElement node, string ten)
+        private static string? Find(JsonElement node, string name)
         {
             if (node.ValueKind == JsonValueKind.Object)
             {
-                foreach (var p in node.EnumerateObject())
+                foreach (var property in node.EnumerateObject())
                 {
-                    if (string.Equals(p.Name, ten, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
                     {
-                        return p.Value.ValueKind switch
+                        return property.Value.ValueKind switch
                         {
-                            JsonValueKind.String => p.Value.GetString(),
+                            JsonValueKind.String => property.Value.GetString(),
                             JsonValueKind.Null => null,
-                            _ => p.Value.ToString()
+                            _ => property.Value.ToString()
                         };
                     }
 
-                    if (Tim(p.Value, ten) is { } sau) return sau;
+                    if (Find(property.Value, name) is { } nested) return nested;
                 }
             }
             else if (node.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in node.EnumerateArray())
-                    if (Tim(item, ten) is { } sau) return sau;
+                    if (Find(item, name) is { } nested) return nested;
             }
 
             return null;
@@ -66,10 +67,10 @@ namespace ApiTests.TestSupport
         /// Chuỗi mô tả đầy đủ để đưa vào mọi Assert. Có đủ request lẫn response nên
         /// đọc log Test Explorer là dựng lại được lời gọi.
         /// </summary>
-        public string MoTa =>
-            $"{Method} {Path}\nHTTP {(int)Status} {Status}\nBody: {CatBot(Body)}";
+        public string Describe =>
+            $"{Method} {Path}\nHTTP {(int)Status} {Status}\nBody: {Truncate(Body)}";
 
-        private static string CatBot(string s) =>
-            s.Length <= 1000 ? s : s[..1000] + $"... (con {s.Length - 1000} ky tu)";
+        private static string Truncate(string value) =>
+            value.Length <= 1000 ? value : value[..1000] + $"... (con {value.Length - 1000} ky tu)";
     }
 }

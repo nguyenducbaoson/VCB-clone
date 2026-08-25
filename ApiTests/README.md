@@ -71,17 +71,17 @@ var api = new ApiClient(token: "rac");           // token sai
 
 // 2. Dau vao sai -> dung ma loi nghiep vu
 var api = new ApiClient();
-var res = await api.PostFormAsync(Endpoint, ("PartnerCode", null));
-Assert.True(res.Field("code")?.Contains("PartnerCode") == true, res.MoTa);
+var result = await api.PostFormAsync(Endpoint, ("PartnerCode", null));
+Assert.True(result.Field("code")?.Contains("PartnerCode") == true, result.Describe);
 
 // 3. Duong thanh cong
-var res = await api.PostFormAsync(Endpoint, ("PartnerCode", "PHONEPOS"), ("Tid", ApiEnv.Tid));
-Assert.True(res.ThanhCong, res.MoTa);
+var result = await api.PostFormAsync(Endpoint, ("PartnerCode", "PHONEPOS"), ("Tid", ApiEnv.Tid));
+Assert.True(result.IsSuccess, result.Describe);
 ```
 
 Service khác thì `new ApiClient(ApiEnv.AddRedis)` và `[ApiFact(ApiEnv.AddRedis)]`.
 
-**Luôn truyền `res.MoTa` vào Assert** — nó in method, URL, status và body, đủ để dựng
+**Luôn truyền `result.Describe` vào Assert** — nó in method, URL, status và body, đủ để dựng
 lại lời gọi từ log Test Explorer mà không phải mở Postman.
 
 ## Bốn quyết định thiết kế

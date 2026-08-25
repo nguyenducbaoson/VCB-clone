@@ -18,7 +18,7 @@ namespace ApiTests.TestSupport
     /// </summary>
     public sealed class ApiClient
     {
-        private static readonly ConcurrentDictionary<string, HttpClient> Shared = new();
+        private static readonly ConcurrentDictionary<string, HttpClient> SharedClients = new();
 
         private readonly HttpClient _http;
         private readonly string? _token;
@@ -31,9 +31,9 @@ namespace ApiTests.TestSupport
         /// </param>
         public ApiClient(string service = ApiEnv.VcbPortalApi, string? token = "")
         {
-            _http = Shared.GetOrAdd(service, s => new HttpClient
+            _http = SharedClients.GetOrAdd(service, key => new HttpClient
             {
-                BaseAddress = new Uri(ApiEnv.BaseUrl(s) + "/"),
+                BaseAddress = new Uri(ApiEnv.BaseUrl(key) + "/"),
                 Timeout = TimeSpan.FromSeconds(30)
             });
 
@@ -41,12 +41,12 @@ namespace ApiTests.TestSupport
         }
 
         /// <summary>POST dạng x-www-form-urlencoded. Bỏ qua field có giá trị null.</summary>
-        public Task<ApiResult> PostFormAsync(string path, params (string Ten, string? GiaTri)[] fields) =>
+        public Task<ApiResult> PostFormAsync(string path, params (string Name, string? Value)[] fields) =>
             SendAsync(new HttpRequestMessage(HttpMethod.Post, path)
             {
                 Content = new FormUrlEncodedContent(
-                    fields.Where(f => f.GiaTri is not null)
-                          .Select(f => new KeyValuePair<string, string>(f.Ten, f.GiaTri!)))
+                    fields.Where(f => f.Value is not null)
+                          .Select(f => new KeyValuePair<string, string>(f.Name, f.Value!)))
             });
 
         public Task<ApiResult> PostJsonAsync(string path, object body) =>

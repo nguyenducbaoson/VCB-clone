@@ -25,24 +25,24 @@ namespace ApiTests.TestSupport
         public const string VcbPortalApi = "VCB_API_BASEURL";
         public const string AddRedis = "ADDREDIS_BASEURL";
 
-        public static string? Token { get; } = Doc("VCB_API_TOKEN");
+        public static string? Token { get; } = Read("VCB_API_TOKEN");
 
-        public static string Partner { get; } = Doc("VCB_API_PARTNER") ?? "PHONEPOS";
-        public static string? Mid { get; } = Doc("VCB_API_MID");
-        public static string? Tid { get; } = Doc("VCB_API_TID");
+        public static string Partner { get; } = Read("VCB_API_PARTNER") ?? "PHONEPOS";
+        public static string? Mid { get; } = Read("VCB_API_MID");
+        public static string? Tid { get; } = Read("VCB_API_TID");
 
         /// <summary>Base URL của một service. null nếu chưa cấu hình.</summary>
-        public static string? BaseUrl(string service) => Doc(service)?.TrimEnd('/');
+        public static string? BaseUrl(string service) => Read(service)?.TrimEnd('/');
 
-        public static bool SanSang(string service) => BaseUrl(service) is not null;
+        public static bool IsReady(string service) => BaseUrl(service) is not null;
 
-        public static string LyDoSkip(string service) =>
+        public static string SkipReason(string service) =>
             $"Chua dat {service} nen bo qua test cua service nay. " +
             $"Dat bien do (va VCB_API_TOKEN neu endpoint can dang nhap) roi chay lai.";
 
-        private static string? Doc(string ten) =>
-            Environment.GetEnvironmentVariable(ten) is { } v && !string.IsNullOrWhiteSpace(v)
-                ? v.Trim()
+        private static string? Read(string name) =>
+            Environment.GetEnvironmentVariable(name) is { } value && !string.IsNullOrWhiteSpace(value)
+                ? value.Trim()
                 : null;
     }
 
@@ -54,7 +54,7 @@ namespace ApiTests.TestSupport
     {
         public ApiFactAttribute(string service = ApiEnv.VcbPortalApi)
         {
-            if (!ApiEnv.SanSang(service)) Skip = ApiEnv.LyDoSkip(service);
+            if (!ApiEnv.IsReady(service)) Skip = ApiEnv.SkipReason(service);
         }
     }
 
@@ -63,7 +63,7 @@ namespace ApiTests.TestSupport
     {
         public ApiTheoryAttribute(string service = ApiEnv.VcbPortalApi)
         {
-            if (!ApiEnv.SanSang(service)) Skip = ApiEnv.LyDoSkip(service);
+            if (!ApiEnv.IsReady(service)) Skip = ApiEnv.SkipReason(service);
         }
     }
 }
