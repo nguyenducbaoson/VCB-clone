@@ -16,10 +16,6 @@ namespace VcbPortalApi.UnitTests.Fixtures
 
     public static class TestDbExtensions
     {
-        /// <summary>
-        /// Thêm dữ liệu mẫu rồi lưu ngay. Trả về chính entity đó để test giữ tham chiếu
-        /// mà khẳng định sau khi gọi hàm cần test.
-        /// </summary>
         public static T Seed<T>(this Microsoft.EntityFrameworkCore.DbContext db, T entity) where T : class
         {
             db.Add(entity);
