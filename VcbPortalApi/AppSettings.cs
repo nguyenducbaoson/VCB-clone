@@ -82,11 +82,13 @@ namespace VcbPortalApi
         public interface IAppLogger
         {
             void Error(Exception exception);
+            void Warn(string message);
         }
 
         private sealed class NullLogger : IAppLogger
         {
             public void Error(Exception exception) { }
+            public void Warn(string message) { }
         }
 
         public static IAppLogger Logger { get; set; } = new NullLogger();

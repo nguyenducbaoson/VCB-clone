@@ -1,4 +1,4 @@
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Models.MP.User.Detail;
 using VcbPortalApi.StaticData.MP;
 

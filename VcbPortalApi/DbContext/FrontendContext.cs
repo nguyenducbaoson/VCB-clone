@@ -6,55 +6,53 @@ using VcbPortalApi.Models.MP.User.Detail;
 using VcbPortalApi.Models.SSO;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FILE KHUNG — solution thật đã có FrontendContext và MerchantContext.
-// Dựng lại đủ các DbSet mà MobilePartnerController.IssueSsoToken và constructor
-// MpUserFull dùng. ĐỪNG chép đè.
+// FILE KHUNG — dựng theo đúng hình dạng bản thật: namespace ...DbContext.Oracle,
+// class partial, DbSet virtual, hai constructor, OnConfiguring có chốt
+// `if (!optionsBuilder.IsConfigured)` rồi chọn connection string theo môi trường.
+// Chỉ giữ những DbSet mà code trong repo này dùng tới. ĐỪNG chép đè.
 //
-// HAI CÁCH KHỞI TẠO, cả hai đều có trong code thật:
-//   - new FrontendContext(options) — DI, luồng mobile/SSO.
-//   - new FrontendContext()        — MpUserFull/FepController gọi trực tiếp trong
-//     thân hàm. Bản thật tự đọc connection string; ở đây lấy từ AmbientOptions
-//     để test trỏ được vào InMemory. Đây là CHỖ DUY NHẤT tôi thêm so với bản thật.
+// HỆ QUẢ CHO TEST — đây là kết luận cuối, không còn phỏng đoán:
+// `new FrontendContext()` không có options nên OnConfiguring LUÔN vào nhánh đọc
+// connection string. Không có chỗ nào chèn DB test vào. Vì vậy mọi thứ gọi
+// `new FrontendContext()` trong thân hàm — MpUserFull(string), InsertFull,
+// SaveFull, UserActionLogHelper.TryLog — KHÔNG unit test được.
+// Chỉ những chỗ nhận FrontendContext qua tham số mới test được.
 // ─────────────────────────────────────────────────────────────────────────────
-namespace VcbPortalApi.DbContext
+namespace VcbPortalApi.DbContext.Oracle
 {
-    public class FrontendContext : Microsoft.EntityFrameworkCore.DbContext
+    public partial class FrontendContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        public FrontendContext(DbContextOptions<FrontendContext> options) : base(options) { }
+        //Users
+        public virtual DbSet<MpUserCommon> MpUserCommons { get; set; } = null!;
+        public virtual DbSet<MpAppUser> MpAppUsers { get; set; } = null!;             // ROLEID 1 2 3
+        public virtual DbSet<MpBcaUser> MpBcaUsers { get; set; } = null!;             // ROLEID 21 22 23 24 25
+        public virtual DbSet<MpShlxUser> MpShlxUsers { get; set; } = null!;           // ROLEID 28 29
+        public virtual DbSet<MpApiUser> MpApiUsers { get; set; } = null!;             // ROLEID 41
+        public virtual DbSet<MpVcbUser> MpVcbUsers { get; set; } = null!;             // ROLEID 11,12,13,19,31,32,35,51,52,53,54
 
-        /// <summary>
-        /// KHÔNG CÓ TRONG BẢN THẬT — hai thành viên dưới đây là khe duy nhất để test
-        /// trỏ được DB vào <c>new FrontendContext()</c>, thứ mà MpUserFull,
-        /// FepController và UserActionLogHelper gọi thẳng trong thân hàm.
-        ///
-        /// TẠM THỜI: đang chờ ảnh FrontendContext thật. Nếu bản thật là kiểu scaffold
-        /// chuẩn (ctor rỗng + OnConfiguring có <c>if (!optionsBuilder.IsConfigured)</c>)
-        /// thì bỏ hẳn được khe này, test không phải sửa dòng nào.
-        /// </summary>
-        public static DbContextOptions<FrontendContext>? AmbientOptions { get; set; }
+        public virtual DbSet<MpSession> MpSessions { get; set; } = null!;
+        public virtual DbSet<MpAppUserActionLog> MpAppUserActionLogs { get; set; } = null!;
 
-        public FrontendContext() : base(
-            AmbientOptions ?? throw new InvalidOperationException(
-                "FILE KHUNG: chua gan FrontendContext.AmbientOptions."))
+        public FrontendContext() { }
+
+        public FrontendContext(DbContextOptions<FrontendContext> options)
+            : base(options)
         { }
 
-        public DbSet<MpSession> MpSessions => Set<MpSession>();
-        
-        public DbSet<MpAppUser> MpAppUsers => Set<MpAppUser>();
-
-        public DbSet<MpUserCommon> MpUsersCommons => Set<MpUserCommon>();
-        public DbSet<MpVcbUser> MpVcbUsers => Set<MpVcbUser>();
-        public DbSet<MpBcaUser> MpBcaUsers => Set<MpBcaUser>();
-        public DbSet<MpShlxUser> MpShlxUsers => Set<MpShlxUser>();
-        public DbSet<MpApiUser> MpApiUsers => Set<MpApiUser>();
-        public DbSet<MpAppUserActionLog> MpAppUserActionLogs => Set<MpAppUserActionLog>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                // Bản thật: AppSettings.FrontDb.ConStr, đổi sang UatDb/PilotDb theo
+                // BuildSettings. Bản khung không có Oracle nên ném rõ ràng.
+                throw new InvalidOperationException("FILE KHUNG: khong co connection string that.");
+            }
+        }
 
         protected override void OnModelCreating(ModelBuilder b)
         {
             b.Entity<MpSession>().HasKey(x => x.UserName);
-            
             b.Entity<MpAppUser>().HasKey(x => x.UserName);
-
             b.Entity<MpUserCommon>().HasKey(x => x.UserName);
             b.Entity<MpVcbUser>().HasKey(x => x.UserName);
             b.Entity<MpBcaUser>().HasKey(x => x.UserName);
@@ -63,21 +61,27 @@ namespace VcbPortalApi.DbContext
             b.Entity<MpAppUserActionLog>().HasKey(x => x.Id);
 
             // MpUserFull kế thừa MpUserCommon nhưng KHÔNG phải entity (nó ghép nhiều
-            // bảng). Không bỏ dòng này thì EF coi nó là kiểu dẫn xuất TPH và đòi
-            // ánh xạ cả cột bảng chi tiết.
+            // bảng). Không bỏ dòng này thì EF coi nó là kiểu dẫn xuất TPH.
             b.Ignore<MpUserFull>();
         }
     }
 
-    public class MerchantContext : Microsoft.EntityFrameworkCore.DbContext
+    /// <summary>FILE KHUNG — cùng namespace với FrontendContext ở bản thật.</summary>
+    public partial class MerchantContext : Microsoft.EntityFrameworkCore.DbContext
     {
+        public virtual DbSet<MpTerminal> MpTerminals { get; set; } = null!;
+
+        public MerchantContext() { }
+
         public MerchantContext(DbContextOptions<MerchantContext> options) : base(options) { }
 
-        public DbSet<MpTerminal> MpTerminals => Set<MpTerminal>();
-
-        protected override void OnModelCreating(ModelBuilder b)
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            b.Entity<MpTerminal>().HasKey(x => x.RowId);
+            if (!optionsBuilder.IsConfigured)
+                throw new InvalidOperationException("FILE KHUNG: khong co connection string that.");
         }
+
+        protected override void OnModelCreating(ModelBuilder b) =>
+            b.Entity<MpTerminal>().HasKey(x => x.RowId);
     }
 }

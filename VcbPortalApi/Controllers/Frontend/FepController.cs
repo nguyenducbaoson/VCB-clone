@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StackExchange.Redis;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Helpers;
 using VcbPortalApi.Models.Hcm;
 using VcbPortalApi.Models.MP;

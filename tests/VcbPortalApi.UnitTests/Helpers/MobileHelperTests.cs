@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Helpers;
 using VcbPortalApi.Models.MP;
 using VcbPortalApi.Models.MP.User;
@@ -16,7 +16,7 @@ namespace VcbPortalApi.UnitTests.Helpers
             MobileHelper.DeactivateMobileUserAsync(_context, userName);
 
         private MpUserCommon? ReloadCommon(string userName = TestDataHelper.DefaultUserName) =>
-            _context.MpUsersCommons.AsNoTracking().FirstOrDefault(x => x.UserName == userName);
+            _context.MpUserCommons.AsNoTracking().FirstOrDefault(x => x.UserName == userName);
 
         private MpAppUser? ReloadAppUser(string userName = TestDataHelper.DefaultUserName) =>
             _context.MpAppUsers.AsNoTracking().FirstOrDefault(x => x.UserName == userName);

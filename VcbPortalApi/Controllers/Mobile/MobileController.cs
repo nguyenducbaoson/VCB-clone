@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Helpers;
 using VcbPortalApi.Models.MobileApp;
 using VcbPortalApi.Services;

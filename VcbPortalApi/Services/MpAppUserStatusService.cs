@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Models.SSO;
 
 namespace VcbPortalApi.Services

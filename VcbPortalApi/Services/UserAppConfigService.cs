@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 
 // FILE KHUNG - solution that da co service nay. DUNG chep de.
 namespace VcbPortalApi.Services

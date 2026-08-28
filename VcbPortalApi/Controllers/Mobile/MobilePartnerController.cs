@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Helpers;
 using VcbPortalApi.Models.MP;
 using VcbPortalApi.Models.MP.User;
@@ -63,7 +63,7 @@ namespace VcbPortalApi.Controllers.Mobile
             if (session == null || string.IsNullOrWhiteSpace(session.SessionId))
                 return MobileApiError.BaseError();
 
-            var common = await context.MpUsersCommons.AsNoTracking()
+            var common = await context.MpUserCommons.AsNoTracking()
                 .Where(x => x.UserName == userName)
                 .Select(x => new { x.Email, x.RoleId })
                 .FirstOrDefaultAsync();

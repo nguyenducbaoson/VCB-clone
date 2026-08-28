@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VcbPortalApi.Controllers.Mobile;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Models.MobileApp;
 using VcbPortalApi.Models.MP.User;
 using VcbPortalApi.Models.TwoFa;
@@ -43,7 +43,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Mobile
             };
 
         private MpUserCommon? Reload() =>
-            _context.MpUsersCommons.AsNoTracking()
+            _context.MpUserCommons.AsNoTracking()
                     .FirstOrDefault(x => x.UserName == TestDataHelper.DefaultUserName);
 
         // ══ Deactive ════════════════════════════════════════════════════════════
@@ -141,7 +141,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Mobile
             var body = response.Value!.ToString();
             body.Should().NotContain("Disposed", "khong duoc lo chi tiet loi ra client");
             body.Should().NotContain("ObjectDisposedException");
-            body.Should().NotContain("MpUsersCommons", "khong duoc lo ten bang ra client");
+            body.Should().NotContain("MpUserCommons", "khong duoc lo ten bang ra client");
         }
 
         /// <summary>

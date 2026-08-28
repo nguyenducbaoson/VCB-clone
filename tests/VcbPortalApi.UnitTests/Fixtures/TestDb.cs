@@ -35,8 +35,8 @@ namespace VcbPortalApi.UnitTests.Fixtures
 namespace VcbPortalApi.UnitTests.Fixtures
 {
     /// <summary>
-    /// Lớp test nào đụng trạng thái static (FrontendContext.AmbientOptions,
-    /// AppSettings, SendEmail.Sender, SimpleCaptcha.Validator) phải mang
+    /// Lớp test nào đụng trạng thái static (
+    /// AppSettings.JdWhiteList, Branches.Names) phải mang
     /// [Collection(StaticStateCollection.Name)] để xUnit chạy tuần tự.
     /// </summary>
     [CollectionDefinition(Name, DisableParallelization = true)]

@@ -58,9 +58,9 @@ namespace VcbPortalApi.Models.MP.User
         {
             UserName = username;
 
-            using var frontendContext = new DbContext.FrontendContext();
+            using var frontendContext = new DbContext.Oracle.FrontendContext();
 
-            var common = frontendContext.MpUsersCommons.FirstOrDefault(x => x.UserName == username);
+            var common = frontendContext.MpUserCommons.FirstOrDefault(x => x.UserName == username);
 
             if (common == null)
             {
@@ -99,9 +99,9 @@ namespace VcbPortalApi.Models.MP.User
         /// <summary>Thêm mới user. Trả về số dòng ghi được.</summary>
         public int InsertFull()
         {
-            using var frontendContext = new DbContext.FrontendContext();
+            using var frontendContext = new DbContext.Oracle.FrontendContext();
 
-            frontendContext.MpUsersCommons.Add(ToCommonRow());
+            frontendContext.MpUserCommons.Add(ToCommonRow());
 
             if (this is MpUserFull full)
                 frontendContext.MpVcbUsers.Add(full.ToVcbRow());
@@ -112,15 +112,15 @@ namespace VcbPortalApi.Models.MP.User
         /// <summary>Cập nhật user đã có. Trả về số dòng ghi được.</summary>
         public int SaveFull()
         {
-            using var frontendContext = new DbContext.FrontendContext();
+            using var frontendContext = new DbContext.Oracle.FrontendContext();
 
-            var common = frontendContext.MpUsersCommons.FirstOrDefault(x => x.UserName == UserName);
+            var common = frontendContext.MpUserCommons.FirstOrDefault(x => x.UserName == UserName);
 
             if (common == null)
                 return 0;
 
             frontendContext.Remove(common);
-            frontendContext.MpUsersCommons.Add(ToCommonRow());
+            frontendContext.MpUserCommons.Add(ToCommonRow());
 
             if (this is MpUserFull full)
             {

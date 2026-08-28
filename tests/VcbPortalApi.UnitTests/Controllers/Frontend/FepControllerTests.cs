@@ -1,16 +1,8 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using System.Text.Json;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using StackExchange.Redis;
 using VcbPortalApi.Controllers.Frontend;
-using VcbPortalApi.DbContext;
 using VcbPortalApi.Models.Hcm;
-using VcbPortalApi.Models.MobileApp;
-using VcbPortalApi.Models.MP;
 using VcbPortalApi.Models.MP.User;
-using VcbPortalApi.Models.SSO;
 using VcbPortalApi.StaticData.MP;
 using VcbPortalApi.Tools;
 using VcbPortalApi.UnitTests.Fixtures;
@@ -19,21 +11,16 @@ using VcbPortalApi.UnitTests.Helpers;
 namespace VcbPortalApi.UnitTests.Controllers.Frontend
 {
     /// <summary>
-    /// Chia làm ba phần theo thứ QUAN SÁT ĐƯỢC TỪ ĐÂU:
+    /// Test cho hai hàm đồng bộ cán bộ VCB: <c>InsertNewVcbUser</c> và <c>CheckModified</c>.
+    /// Gọi thẳng, truyền vào một <c>MpUserFull</c> do test tự cầm, rồi kiểm các trường
+    /// trên chính đối tượng đó. Cả hai hàm gán hết trường TRƯỚC khi gọi
+    /// <c>InsertFull()</c>/<c>SaveFull()</c>, nên phần ánh xạ kiểm được mà không cần DB.
     ///
-    ///   1. Endpoint Authenticate — chỉ khẳng định trên IActionResult, số lần gọi
-    ///      Redis và email đã gửi. KHÔNG đọc DB, vì dòng ghi ra là do
-    ///      InsertFull()/SaveFull() tạo, mà hai hàm đó ở solution thật ghi xuống
-    ///      Oracle chứ không vào InMemory DB của test.
-    ///
-    ///   2. InsertNewVcbUser — gọi thẳng, truyền vào một MpUserFull do test tự cầm,
-    ///      rồi kiểm các trường trên chính đối tượng đó. Hàm gán hết trường TRƯỚC khi
-    ///      gọi InsertFull(), nên phần ánh xạ kiểm được mà không cần DB.
-    ///
-    ///   3. CheckModified — tương tự.
-    ///
-    /// LƯU Ý: BuildSettings.Env là private const = BuildEnv.Dev nên IsDev luôn true;
-    /// khối kiểm captcha và khối kiểm mật khẩu là code chết ở bản build này.
+    /// KHÔNG CÓ TEST CHO ENDPOINT <c>Authenticate</c>. Hàm đó mở đầu bằng
+    /// <c>new MpUserFull(userName)</c>, mà constructor ấy tự dựng
+    /// <c>new FrontendContext()</c> trong thân hàm — không có tham số nào để đưa DB
+    /// test vào. Muốn test được thì <c>MpUserFull</c> phải nhận <c>FrontendContext</c>
+    /// qua tham số; đó là thay đổi ở code sản phẩm, không phải ở test.
     /// </summary>
     [Collection(StaticStateCollection.Name)]
     public class FepControllerTests : IDisposable
@@ -41,86 +28,9 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         private const string UserName = TestDataHelper.DefaultUserName;
         private const string MaJob = TestDataHelper.DefaultMaJob;
 
-        private readonly FrontendContext _db;
-        private readonly Mock<IDatabase> _redisDb = new();
-        private readonly Mock<IConnectionMultiplexer> _redis = new();
-        private readonly List<string?> _emailedTo = [];
-        private string _sendResult = "OK";
-        private int _captchaCalls;
+        public FepControllerTests() => AppSettings.JdWhiteList.Clear();
 
-        public FepControllerTests()
-        {
-            var options = new DbContextOptionsBuilder<FrontendContext>()
-                .UseInMemoryDatabase($"test-{Guid.NewGuid()}").Options;
-
-            FrontendContext.AmbientOptions = options;
-            _db = new FrontendContext(options);
-
-            AppSettings.JdWhiteList.Clear();
-
-            _redis.Setup(x => x.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(_redisDb.Object);
-
-            // Trả false: test nào lỡ chạm nhánh captcha thì phải đỏ, không im lặng đi qua.
-            SimpleCaptcha.Validator = (_, _) => { _captchaCalls++; return false; };
-
-            SendEmail.Sender = (to, _, _) => { _emailedTo.Add(to); return _sendResult; };
-        }
-
-        public void Dispose()
-        {
-            FrontendContext.AmbientOptions = null;
-            AppSettings.JdWhiteList.Clear();
-            SimpleCaptcha.Validator = null!;
-            SendEmail.Sender = null!;
-            _db.Dispose();
-        }
-
-        // ── Dựng dữ liệu ────────────────────────────────────────────────────────
-
-        private Task<IActionResult> Authenticate(string userName = UserName, string password = "Abcd1234!") =>
-            new FepController(_db, _redis.Object)
-            {
-                ControllerContext = TestHttpContext.Build(userName: null)
-            }
-            .Authenticate(new SignInPayload { UserName = userName, Password = password });
-
-        /// <summary>Cán bộ VCB. Thiếu dòng MP_VCB_USERS thì UserType tụt xuống COMMON.</summary>
-        private void SeedVcbUser(string status = "O", string? maJob = MaJob, decimal roleId = Roles.RoleTtv)
-        {
-            _db.Seed(TestDataHelper.CreateUsersCommon(roleId: roleId, status: status));
-            _db.Seed(TestDataHelper.CreateVcbUser(maJob: maJob));
-        }
-
-        /// <summary>User mobile — dùng khi test muốn bỏ qua khối HCM.</summary>
-        private void SeedAppUser(string status = "O", string userName = UserName)
-        {
-            _db.Seed(TestDataHelper.CreateUsersCommon(userName: userName, roleId: Roles.RoleMid, status: status));
-            _db.Seed(new MpAppUser { UserName = userName, Bid = 1 });
-        }
-
-        /// <summary>
-        /// GetByIndexAsync đọc index bằng StringGetAsync(RedisKey) rồi đọc item bằng
-        /// StringGetAsync(RedisKey[]) — hai overload khác nhau nên set riêng được, và
-        /// test không phụ thuộc cách hàm đó ghép chuỗi key.
-        /// </summary>
-        private void HcmReturns(params VCanBo[] canbos)
-        {
-            var index = canbos.Select((_, i) => KeyValuePair.Create($"pk{i}", UserName))
-                              .ToDictionary(x => x.Key, x => x.Value);
-
-            _redisDb.Setup(x => x.StringGetAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
-                    .ReturnsAsync((RedisValue)JsonSerializer.Serialize(index));
-
-            _redisDb.Setup(x => x.StringGetAsync(It.IsAny<RedisKey[]>(), It.IsAny<CommandFlags>()))
-                    .ReturnsAsync(canbos.Select(c => (RedisValue)JsonSerializer.Serialize(c)).ToArray());
-        }
-
-        private void HcmReturnsNothing() =>
-            _redisDb.Setup(x => x.StringGetAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
-                    .ReturnsAsync(RedisValue.Null);
-
-        private void VerifyHcmNotQueried() =>
-            _redisDb.Verify(x => x.StringGetAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()), Times.Never);
+        public void Dispose() => AppSettings.JdWhiteList.Clear();
 
         // ── Gọi hàm private ─────────────────────────────────────────────────────
         // Hai hàm này là `private static` và GIỮ NGUYÊN như bản thật — không nới
@@ -142,7 +52,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         private static bool MappingDone(MpUserFull mpUserFull) =>
             mpUserFull.UserUpdate == AppSettings.SystemUser;
 
-        private static bool InsertNewVcbUser(MpUserFull mpUserFull, VCanBo canbo, string userName = UserName)
+        private static bool InsertNewVcbUser(string userName, MpUserFull mpUserFull, VCanBo canbo)
         {
             try
             {
@@ -185,231 +95,6 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // 1. ENDPOINT Authenticate — chỉ khẳng định trên response
-        // ══════════════════════════════════════════════════════════════════════
-
-        /// <summary>Chưa có tài khoản, cũng không phải cán bộ VCB — từ chối.</summary>
-        [Fact]
-        public async Task Authenticate_WhenUserUnknownAndNotInHcm_ReturnsBaseError()
-        {
-            HcmReturnsNothing();
-
-            var result = await Authenticate();
-
-            result.ShouldBeError(MobileApiError.CodeBaseError);
-            _emailedTo.Should().BeEmpty();
-        }
-
-        /// <summary>
-        /// Cán bộ đã nghỉ việc: còn tài khoản MP nhưng HCM hết bản ghi → từ chối.
-        /// Code còn đặt Status = "D" rồi SaveFull() ngay trước khi trả lỗi, nhưng
-        /// việc ghi đó KHÔNG quan sát được từ ngoài endpoint — xem ghi chú đầu file.
-        /// </summary>
-        // CHẠM DB: nhánh này đi qua InsertFull()/SaveFull(). Ở solution thật hai hàm đó
-        // ghi Oracle nên test sẽ đỏ cho tới khi MpUserFull nhận được FrontendContext.
-
-        [Fact]
-        public async Task Authenticate_WhenVcbUserNoLongerInHcm_ReturnsBaseError()
-        {
-            SeedVcbUser();
-            HcmReturnsNothing();
-
-            var result = await Authenticate();
-
-            result.ShouldBeError(MobileApiError.CodeBaseError);
-        }
-
-        /// <summary>Một tài khoản khớp nhiều bản ghi HCM là dữ liệu hỏng — không đoán bừa.</summary>
-        [Fact]
-        public async Task Authenticate_WhenHcmReturnsMoreThanOneRecord_ReturnsHcmError()
-        {
-            SeedVcbUser();
-            HcmReturns(TestDataHelper.CreateCanBo(), TestDataHelper.CreateCanBo());
-
-            var result = await Authenticate();
-
-            result.ShouldBeError(MobileApiError.CodeBaseError);
-            result.ShouldHaveMessage("Lỗi HCM");
-        }
-
-        /// <summary>
-        /// LỖI THẬT: <c>maJob = canbo.MaJob.ToUpper().Trim()</c> không có <c>?.</c>.
-        /// Bản ghi HCM thiếu mã JD làm cả request nổ — dù InsertNewVcbUser ngay sau đó
-        /// có sẵn nhánh xử lý MaJob rỗng, không bao giờ chạy tới.
-        /// </summary>
-        [Fact]
-        public async Task Authenticate_WhenHcmRecordHasNullMaJob_Throws()
-        {
-            HcmReturns(TestDataHelper.CreateCanBo(maJob: null));
-
-            var act = async () => await Authenticate();
-
-            await act.Should().ThrowAsync<NullReferenceException>();
-        }
-
-        /// <summary>User không phải cán bộ VCB thì bỏ qua khối HCM, không gọi Redis.</summary>
-        [Fact]
-        public async Task Authenticate_WhenAppUser_SkipsHcmLookup()
-        {
-            SeedAppUser();
-
-            var result = await Authenticate();
-
-            result.ShouldHaveAccessToken();
-            VerifyHcmNotQueried();
-        }
-
-        /// <summary>
-        /// Cán bộ VCB có quyền quản trị thì KHÔNG đối chiếu HCM — đó là vế
-        /// <c>&amp;&amp; mpUserFull.RoleId != Roles.RoleAdmin</c>. Tài khoản admin
-        /// đăng nhập được kể cả khi đã rời khỏi HCM.
-        /// </summary>
-        [Fact]
-        public async Task Authenticate_WhenVcbAdmin_SkipsHcmLookup()
-        {
-            SeedVcbUser(roleId: Roles.RoleAdmin);
-
-            var result = await Authenticate();
-
-            result.ShouldHaveAccessToken();
-            VerifyHcmNotQueried();
-        }
-
-        /// <summary>
-        /// GHI LẠI LỖ HỔNG: cán bộ VCB có dòng MP_USERS_COMMON nhưng THIẾU dòng
-        /// MP_VCB_USERS thì constructor hạ UserType xuống COMMON, điều kiện vào khối
-        /// HCM không khớp, và toàn bộ khâu đối chiếu bị bỏ qua — cấp token luôn.
-        /// Tức xoá một dòng ở bảng chi tiết là thoát được kiểm tra "còn làm việc hay đã nghỉ".
-        /// </summary>
-        [Fact]
-        public async Task Authenticate_WhenVcbUserMissingDetailRow_SkipsHcmAndStillIssuesToken()
-        {
-            _db.Seed(TestDataHelper.CreateUsersCommon(roleId: Roles.RoleTtv, status: "O"));
-            // cố tình KHÔNG seed MP_VCB_USERS
-
-            var result = await Authenticate();
-
-            result.ShouldHaveAccessToken();
-            VerifyHcmNotQueried();
-        }
-
-        /// <summary>Cán bộ VCB đăng nhập lần đầu: tạo tài khoản, gửi mật khẩu qua email, KHÔNG cấp token.</summary>
-        // CHẠM DB: nhánh này đi qua InsertFull()/SaveFull(). Ở solution thật hai hàm đó
-        // ghi Oracle nên test sẽ đỏ cho tới khi MpUserFull nhận được FrontendContext.
-
-        [Fact]
-        public async Task Authenticate_WhenNewVcbUser_EmailsPasswordInsteadOfIssuingToken()
-        {
-            HcmReturns(TestDataHelper.CreateCanBo());
-
-            var result = await Authenticate();
-
-            result.ShouldHaveMessage("Đã gửi email thông tin đăng nhập");
-            _emailedTo.Should().ContainSingle();
-        }
-
-        /// <summary>MaJob rỗng thì không tạo được tài khoản, và không gửi mail.</summary>
-        [Fact]
-        public async Task Authenticate_WhenNewUserCannotBeCreated_ReturnsBaseError()
-        {
-            HcmReturns(TestDataHelper.CreateCanBo(maJob: ""));
-
-            var result = await Authenticate();
-
-            result.ShouldBeError(MobileApiError.CodeBaseError);
-            _emailedTo.Should().BeEmpty();
-        }
-
-        /// <summary>Gửi mật khẩu thất bại thì coi như tạo tài khoản thất bại.</summary>
-        // CHẠM DB: nhánh này đi qua InsertFull()/SaveFull(). Ở solution thật hai hàm đó
-        // ghi Oracle nên test sẽ đỏ cho tới khi MpUserFull nhận được FrontendContext.
-
-        [Fact]
-        public async Task Authenticate_WhenPasswordEmailFails_ReturnsBaseError()
-        {
-            _sendResult = "ERROR";
-            HcmReturns(TestDataHelper.CreateCanBo());
-
-            var result = await Authenticate();
-
-            result.ShouldBeError(MobileApiError.CodeBaseError);
-            _emailedTo.Should().ContainSingle("da co gang gui truoc khi bao loi");
-        }
-
-        /// <summary>Cán bộ đã có tài khoản và còn trong HCM thì đăng nhập được.</summary>
-        // CHẠM DB: nhánh này đi qua InsertFull()/SaveFull(). Ở solution thật hai hàm đó
-        // ghi Oracle nên test sẽ đỏ cho tới khi MpUserFull nhận được FrontendContext.
-
-        [Fact]
-        public async Task Authenticate_WhenExistingVcbUserStillInHcm_IssuesToken()
-        {
-            SeedVcbUser(maJob: "JD_CU");
-            HcmReturns(TestDataHelper.CreateCanBo(maJob: "JD_MOI"));
-
-            var result = await Authenticate();
-
-            result.ShouldHaveAccessToken();
-        }
-
-        /// <summary>Chỉ trạng thái "O" mới đăng nhập được.</summary>
-        [Theory]
-        [InlineData("D")]
-        [InlineData("A")]
-        public async Task Authenticate_WhenStatusIsNotActive_ReturnsBaseError(string status)
-        {
-            SeedAppUser(status: status);
-
-            var result = await Authenticate();
-
-            result.ShouldBeError(MobileApiError.CodeBaseError);
-        }
-
-        /// <summary>Tên đăng nhập được viết hoa và cắt khoảng trắng trước khi tra cứu.</summary>
-        [Theory]
-        [InlineData("vatid001")]
-        [InlineData("  VATID001  ")]
-        public async Task Authenticate_NormalisesUserNameBeforeLookup(string typed)
-        {
-            SeedAppUser();
-
-            var result = await Authenticate(userName: typed);
-
-            result.ShouldHaveAccessToken();
-        }
-
-        // ── Nhánh không chạm tới được ở bản Dev ─────────────────────────────────
-
-        /// <summary>Khối else chứa SimpleCaptcha là code chết — nhánh wrong_captcha không có đường tới.</summary>
-        [Fact]
-        public async Task Authenticate_InDevBuild_NeverChecksCaptcha()
-        {
-            SeedAppUser();
-
-            var result = await Authenticate();
-
-            _captchaCalls.Should().Be(0);
-            result.ShouldHaveAccessToken();
-        }
-
-        public static TheoryData<string> AnyUserName => [UserName, AppSettings.AdminUsername];
-
-        /// <summary>
-        /// Mật khẩu KHÔNG được kiểm, kể cả tài khoản quản trị: IsDev đứng trước nên
-        /// đoản mạch luôn vế !userName.Equals(AdminUsername). ValidateHash, ghi log sai
-        /// mật khẩu và kiểm độ mạnh mật khẩu đều là code chết ở bản Dev.
-        /// </summary>
-        [Theory]
-        [MemberData(nameof(AnyUserName))]
-        public async Task Authenticate_InDevBuild_AcceptsAnyPassword(string userName)
-        {
-            SeedAppUser(userName: userName);
-
-            var result = await Authenticate(userName: userName, password: "sai-bet-nhe");
-
-            result.ShouldHaveAccessToken();
-        }
-
-        // ══════════════════════════════════════════════════════════════════════
         // 2. InsertNewVcbUser — kiểm trên đối tượng, không đụng DB
         // ══════════════════════════════════════════════════════════════════════
 
@@ -421,7 +106,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         {
             var user = new MpUserFull();
 
-            var result = InsertNewVcbUser(user, TestDataHelper.CreateCanBo(maJob: maJob));
+            var result = InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(maJob: maJob));
 
             result.Should().BeFalse();
             user.UserName.Should().BeNull("thoat truoc khi gan bat ky truong nao");
@@ -434,7 +119,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             AppSettings.JdWhiteList.Add("JD_KHAC");
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo(maJob: MaJob));
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(maJob: MaJob));
 
             user.RoleId.Should().Be(Roles.RoleNghiepVu);
         }
@@ -448,7 +133,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             AppSettings.JdWhiteList.Add(MaJob);
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo(maChucVu: maChucVu));
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(maChucVu: maChucVu));
 
             user.RoleId.Should().Be(Roles.RoleTtv);
         }
@@ -460,7 +145,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             AppSettings.JdWhiteList.Add(MaJob);
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo(maChucVu: 3));
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(maChucVu: 3));
 
             user.RoleId.Should().Be(Roles.RoleKsv);
         }
@@ -474,7 +159,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             AppSettings.JdWhiteList.Add(MaJob);
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo(maJob: maJob));
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(maJob: maJob));
 
             user.RoleId.Should().Be(Roles.RoleTtv);
         }
@@ -490,7 +175,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             AppSettings.JdWhiteList.Add(MaJob.ToLowerInvariant());
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo(maJob: MaJob));
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(maJob: MaJob));
 
             user.RoleId.Should().Be(Roles.RoleNghiepVu);
         }
@@ -506,7 +191,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
                 email: "B.Nguyen@VIETCOMBANK.com.vn",
                 sdtDiDong: "+84 900 000 0012");
 
-            InsertNewVcbUser(user, canbo);
+            InsertNewVcbUser(UserName, user, canbo);
 
             user.UserName.Should().Be(UserName);
             user.Status.Should().Be("O");
@@ -526,7 +211,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         {
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo());
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo());
 
             user.Avatar.Should().Be($"images/thumbnail/{UserName}.jpeg");
         }
@@ -537,7 +222,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         {
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo(samAccountName: null));
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(samAccountName: null));
 
             user.Avatar.Should().BeNull();
         }
@@ -549,8 +234,8 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             var first = new MpUserFull();
             var second = new MpUserFull();
 
-            InsertNewVcbUser(first, TestDataHelper.CreateCanBo(), userName: "VCB0001");
-            InsertNewVcbUser(second, TestDataHelper.CreateCanBo(), userName: "VCB0002");
+            InsertNewVcbUser("VCB0001", first, TestDataHelper.CreateCanBo());
+            InsertNewVcbUser("VCB0002", second, TestDataHelper.CreateCanBo());
 
             first.Salt.Should().NotBe(second.Salt);
             first.Password.Should().NotBe(second.Password);
@@ -567,7 +252,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         {
             var user = new MpUserFull();
 
-            InsertNewVcbUser(user, TestDataHelper.CreateCanBo(email: null));
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(email: null));
 
             user.Email.Should().BeNull();
             user.UserName.Should().Be(UserName);

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE KHUNG — solution thật đã có MobileHelper. ĐỪNG chép đè.
@@ -41,7 +41,7 @@ namespace VcbPortalApi.Helpers
             if (string.IsNullOrEmpty(normalized))
                 return false;
 
-            var common = await context.MpUsersCommons
+            var common = await context.MpUserCommons
                 .FirstOrDefaultAsync(x => x.UserName == normalized, cancellationToken);
 
             if (common == null)

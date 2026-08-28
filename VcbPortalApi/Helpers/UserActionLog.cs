@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using VcbPortalApi.DbContext;
+using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Models.MobileApp;
 
 // ─────────────────────────────────────────────────────────────────────────────
