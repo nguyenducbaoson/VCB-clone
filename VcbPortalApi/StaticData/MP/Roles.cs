@@ -29,8 +29,14 @@ namespace VcbPortalApi.StaticData.MP
 
         public static bool IsBcaRoles(decimal roleId) => roleId == RoleBca;
 
+        /// <summary>
+        /// RoleAdmin PHẢI nằm trong nhóm này. Bằng chứng: Authenticate dòng 58 viết
+        /// <c>UserType == UserType.VCB &amp;&amp; RoleId != Roles.RoleAdmin</c> — nếu
+        /// admin không phải role VCB thì UserType của admin không bao giờ là VCB, và
+        /// vế <c>!= RoleAdmin</c> là code chết. Suy ra admin là một role cán bộ VCB.
+        /// </summary>
         public static bool IsVcbRoles(decimal roleId) =>
-            roleId is RoleNghiepVu or RoleTtv or RoleKsv;
+            roleId is RoleNghiepVu or RoleTtv or RoleKsv or RoleAdmin;
 
         public static bool IsShlxRoles(decimal roleId) => roleId == RoleShlx;
 
