@@ -31,3 +31,17 @@ namespace VcbPortalApi.UnitTests.Fixtures
         }
     }
 }
+
+namespace VcbPortalApi.UnitTests.Fixtures
+{
+    /// <summary>
+    /// Lớp test nào đụng trạng thái static (FrontendContext.AmbientOptions,
+    /// AppSettings, SendEmail.Sender, SimpleCaptcha.Validator) phải mang
+    /// [Collection(StaticStateCollection.Name)] để xUnit chạy tuần tự.
+    /// </summary>
+    [CollectionDefinition(Name, DisableParallelization = true)]
+    public class StaticStateCollection
+    {
+        public const string Name = "static-state";
+    }
+}

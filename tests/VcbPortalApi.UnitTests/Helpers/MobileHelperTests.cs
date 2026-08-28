@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VcbPortalApi.DbContext;
 using VcbPortalApi.Helpers;
 using VcbPortalApi.Models.MP;
+using VcbPortalApi.Models.MP.User;
 using VcbPortalApi.Models.SSO;
 using VcbPortalApi.UnitTests.Fixtures;
 
@@ -14,7 +15,7 @@ namespace VcbPortalApi.UnitTests.Helpers
         private Task<bool> Deactivate(string userName = TestDataHelper.DefaultUserName) =>
             MobileHelper.DeactivateMobileUserAsync(_context, userName);
 
-        private MpUsersCommon? ReloadCommon(string userName = TestDataHelper.DefaultUserName) =>
+        private MpUserCommon? ReloadCommon(string userName = TestDataHelper.DefaultUserName) =>
             _context.MpUsersCommons.AsNoTracking().FirstOrDefault(x => x.UserName == userName);
 
         private MpAppUser? ReloadAppUser(string userName = TestDataHelper.DefaultUserName) =>
@@ -41,7 +42,7 @@ namespace VcbPortalApi.UnitTests.Helpers
         [Fact]
         public async Task DeactivateMobileUserAsync_WhenUserNotFound_ReturnsFalse()
         {
-            // Arrange — co tinh KHONG seed MpUsersCommon
+            // Arrange — co tinh KHONG seed MpUserCommon
 
             // Act
             var result = await Deactivate();
@@ -149,7 +150,7 @@ namespace VcbPortalApi.UnitTests.Helpers
         [Fact]
         public async Task DeactivateMobileUserAsync_WhenNoAppUserRow_StillSetsStatus()
         {
-            // Arrange — chi co MpUsersCommon
+            // Arrange — chi co MpUserCommon
             _context.Seed(TestDataHelper.CreateUsersCommon());
 
             // Act

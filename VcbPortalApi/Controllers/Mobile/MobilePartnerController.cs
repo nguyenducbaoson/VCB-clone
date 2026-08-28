@@ -1,3 +1,4 @@
+using VcbPortalApi.Models.MobileApp;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using VcbPortalApi.DbContext;
 using VcbPortalApi.Helpers;
 using VcbPortalApi.Models.MP;
+using VcbPortalApi.Models.MP.User;
 using VcbPortalApi.Services;
 using VcbPortalApi.StaticData.MP;
 
@@ -39,7 +41,7 @@ namespace VcbPortalApi.Controllers.Mobile
         public async Task<IActionResult> IssueSsoToken([FromForm] PartnerSsoTokenForm form)
         {
             if (!ModelState.IsValid)
-                return MobileApiError.BaseError("InvalidParameters");
+                return MobileApiError.BaseErrorWithCode("InvalidParameters");
 
             var userName = CurrentUserName.Trim().ToUpperInvariant();
             if (string.IsNullOrEmpty(userName))
@@ -47,7 +49,7 @@ namespace VcbPortalApi.Controllers.Mobile
 
             var partnerCode = (form.PartnerCode ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(partnerCode))
-                return MobileApiError.BaseError("PartnerCodeEmpty");
+                return MobileApiError.BaseErrorWithCode("PartnerCodeEmpty");
 
             if (!TryGetBearerTokenExpiresUtc(out var bearerExpiresUtc))
                 return MobileApiError.Unauthorized();
@@ -82,32 +84,32 @@ namespace VcbPortalApi.Controllers.Mobile
             if (roleId == Roles.RoleBid)
             {
                 if (form.Mid is not > 0 || form.Tid is not > 0)
-                    return MobileApiError.BaseError("MidOrMidEmptyUserBid");
+                    return MobileApiError.BaseErrorWithCode("MidOrMidEmptyUserBid");
 
                 if (bId is not > 0)
-                    return MobileApiError.BaseError("UserBidInvalid");
+                    return MobileApiError.BaseErrorWithCode("UserBidInvalid");
 
                 // mid thuộc bid + tid thuộc mid (master), không cần có user APP
                 if (!await MobileHelper.IsMidTidUnderBidAsync(
                         merchantContext, bId.Value, form.Mid.Value, form.Tid.Value,
                         cancellationToken: HttpContext.RequestAborted))
                 {
-                    return MobileApiError.BaseError("MidOrTidNotExistUserBid");
+                    return MobileApiError.BaseErrorWithCode("MidOrTidNotExistUserBid");
                 }
             }
             else if (roleId == Roles.RoleMid)
             {
                 if (form.Tid is not > 0)
-                    return MobileApiError.BaseError("TidEmptyUserMid");
+                    return MobileApiError.BaseErrorWithCode("TidEmptyUserMid");
 
                 if (mId is not > 0)
-                    return MobileApiError.BaseError("UserMidInvalid");
+                    return MobileApiError.BaseErrorWithCode("UserMidInvalid");
 
                 if (!await MobileHelper.IsTidUnderMidAsync(
                         merchantContext, mId.Value, form.Tid.Value,
                         cancellationToken: HttpContext.RequestAborted))
                 {
-                    return MobileApiError.BaseError("TidNotExistUserMid");
+                    return MobileApiError.BaseErrorWithCode("TidNotExistUserMid");
                 }
             }
 

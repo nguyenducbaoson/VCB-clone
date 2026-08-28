@@ -1,6 +1,9 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
+using VcbPortalApi.Models.MP;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE KHUNG — chép lại phần ControllerCustom mà MobilePartnerController dùng tới.
@@ -108,6 +111,44 @@ namespace VcbPortalApi.Controllers
             {
                 return false;
             }
+        }
+
+        // ── Hai thành viên FepController.Authenticate dùng tới ──────────────────
+        // Bản thật đã có cả hai (ghi chú đầu file). Dựng lại đúng chữ ký.
+
+        /// <summary>
+        /// IP thật của client. Bản thật đọc thêm X-Forwarded-For vì API đứng sau
+        /// reverse proxy — giữ nguyên tắc đó ở đây.
+        /// </summary>
+        protected string? GetRealIp() =>
+            HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim()
+            ?? HttpContext.Connection.RemoteIpAddress?.ToString();
+
+        /// <summary>
+        /// Phát access token. Giữ nguyên tên viết sai chính tả của bản thật
+        /// (Genarate, không phải Generate) để code chép sang không phải sửa.
+        /// </summary>
+        protected string GenarateToken(SessionData session, string? maJob, string? terminalId)
+        {
+            var claims = new List<Claim>
+            {
+                new(AppSettings.ClaimUserName, session.UserName),
+                new(AppSettings.ClaimRoleId, session.RoleId.ToString(CultureInfo.InvariantCulture))
+            };
+
+            if (!string.IsNullOrEmpty(maJob))
+                claims.Add(new Claim(AppSettings.ClaimJd, maJob));
+
+            if (!string.IsNullOrEmpty(terminalId))
+                claims.Add(new Claim("terminal_id", terminalId));
+
+            return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+            {
+                Issuer = AppSettings.Issuer,
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(30),
+                SigningCredentials = AppSettings.SigningCredentials
+            });
         }
     }
 }

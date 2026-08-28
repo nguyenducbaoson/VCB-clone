@@ -40,6 +40,57 @@ namespace VcbPortalApi
         public const string ClaimJd = "jd";
         public const string ClaimDeviceToken = "device_token";
 
+        // ── Đồng bộ cán bộ VCB (FepController) ─────────────────────────────────
+
+        /// <summary>
+        /// Danh sách mã JD được cấp role giao dịch (TTV/KSV). Ngoài danh sách này
+        /// thì user chỉ là RoleNghiepVu. So khớp bằng ToUpper().Trim().
+        ///
+        /// KHAI ĐÚNG NHƯ SOLUTION THẬT: <c>static readonly List</c>. `readonly` chỉ
+        /// khoá việc gán lại tham chiếu, KHÔNG khoá nội dung — Load() nạp bằng
+        /// Clear()+AddRange(), test cũng phải mutate chứ không gán lại được.
+        /// </summary>
+        public static readonly List<string> JdWhiteList = [];
+
+        /// <summary>
+        /// Tên ghi vào cột USER_UPDATE khi hệ thống tự đồng bộ, không phải người.
+        ///
+        /// KHAI ĐÚNG NHƯ SOLUTION THẬT: <c>const</c> — không gán được, kể cả trong test.
+        /// GIÁ TRỊ LÀ PHỎNG ĐOÁN. Không sao: code lẫn test đều đọc qua chính hằng này,
+        /// sửa lại cho khớp bản thật thì test vẫn xanh.
+        /// </summary>
+        public const string SystemUser = "SYSTEM";
+
+        /// <summary>
+        /// Tài khoản quản trị. Ở UAT, mọi user KHÁC tài khoản này đều được bỏ qua
+        /// bước check password — xem nhánh <c>BuildSettings.IsUat</c> trong Authenticate.
+        /// GIÁ TRỊ LÀ PHỎNG ĐOÁN; code lẫn test đều đọc qua chính hằng này.
+        /// </summary>
+        public static readonly string AdminUsername = "ADMIN";
+
+        /// <summary>
+        /// Độ dài salt (byte) — <c>Crypto.GenerateSalt()</c> đọc từ đây.
+        /// GIÁ TRỊ LÀ PHỎNG ĐOÁN; không test nào phụ thuộc con số này.
+        /// </summary>
+        public const int SaltLength = 16;
+
+        /// <summary>
+        /// FILE KHUNG — bản thật dùng NLog. Ở đây chỉ cần đúng một hàm
+        /// <c>Error(Exception)</c> mà UserActionLogHelper gọi trong khối catch.
+        /// Mặc định nuốt luôn; test nào cần thì gán lại để đọc.
+        /// </summary>
+        public interface IAppLogger
+        {
+            void Error(Exception exception);
+        }
+
+        private sealed class NullLogger : IAppLogger
+        {
+            public void Error(Exception exception) { }
+        }
+
+        public static IAppLogger Logger { get; set; } = new NullLogger();
+
         public static void Load(IConfiguration configuration)
         {
             SsoPrdHmacSecretKey = configuration["AppSettings:SsoPrdHmacSecretKey"] ?? string.Empty;
