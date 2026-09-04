@@ -11,12 +11,12 @@ using VcbPortalApi.Models.SSO;
 // `if (!optionsBuilder.IsConfigured)` rồi chọn connection string theo môi trường.
 // Chỉ giữ những DbSet mà code trong repo này dùng tới. ĐỪNG chép đè.
 //
-// HỆ QUẢ CHO TEST — đây là kết luận cuối, không còn phỏng đoán:
-// `new FrontendContext()` không có options nên OnConfiguring LUÔN vào nhánh đọc
-// connection string. Không có chỗ nào chèn DB test vào. Vì vậy mọi thứ gọi
-// `new FrontendContext()` trong thân hàm — MpUserFull(string), InsertFull,
-// SaveFull, UserActionLogHelper.TryLog — KHÔNG unit test được.
-// Chỉ những chỗ nhận FrontendContext qua tham số mới test được.
+// HỆ QUẢ CHO TEST:
+// `new FrontendContext()` không có options nên OnConfiguring LUÔN vào nhánh tự cấu
+// hình. Ở BẢN THẬT đó là Oracle nên các chỗ tự `new FrontendContext()` trong thân
+// hàm sẽ chạm DB thật khi chạy test. Ở BẢN KHUNG là InMemory nên test chạy được.
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 namespace VcbPortalApi.DbContext.Oracle
 {
@@ -43,8 +43,14 @@ namespace VcbPortalApi.DbContext.Oracle
         {
             if (!optionsBuilder.IsConfigured)
             {
-                // Bản thật: AppSettings.FrontDb.ConStr, đổi sang UatDb/PilotDb theo
-                // BuildSettings. Bản khung không có Oracle nên ném rõ ràng.
+                // BẢN THẬT:
+                //     var conStr = AppSettings.FrontDb.ConStr;
+                //     if (BuildSettings.IsUat || BuildSettings.IsDev) conStr = AppSettings.UatDb.ConStr;
+                //     if (BuildSettings.IsPilot) conStr = AppSettings.PilotDb.ConStr;
+                //     ... UseOracle(conStr)
+                //
+                // Bản khung không có Oracle nên ném rõ ràng. KHÔNG thay bằng InMemory:
+                // làm vậy là sửa hành vi so với bản thật.
                 throw new InvalidOperationException("FILE KHUNG: khong co connection string that.");
             }
         }

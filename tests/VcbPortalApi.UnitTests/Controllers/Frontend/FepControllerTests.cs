@@ -4,7 +4,6 @@ using VcbPortalApi.Controllers.Frontend;
 using VcbPortalApi.Models.Hcm;
 using VcbPortalApi.Models.MP.User;
 using VcbPortalApi.StaticData.MP;
-using VcbPortalApi.Tools;
 using VcbPortalApi.UnitTests.Fixtures;
 using VcbPortalApi.UnitTests.Helpers;
 
@@ -12,15 +11,15 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
 {
     /// <summary>
     /// Test cho hai hàm đồng bộ cán bộ VCB: <c>InsertNewVcbUser</c> và <c>CheckModified</c>.
-    /// Gọi thẳng, truyền vào một <c>MpUserFull</c> do test tự cầm, rồi kiểm các trường
-    /// trên chính đối tượng đó. Cả hai hàm gán hết trường TRƯỚC khi gọi
-    /// <c>InsertFull()</c>/<c>SaveFull()</c>, nên phần ánh xạ kiểm được mà không cần DB.
+    /// Gọi qua reflection, truyền vào một <c>MpUserFull</c> do test tự cầm, rồi kiểm
+    /// các trường trên chính đối tượng đó.
     ///
-    /// KHÔNG CÓ TEST CHO ENDPOINT <c>Authenticate</c>. Hàm đó mở đầu bằng
-    /// <c>new MpUserFull(userName)</c>, mà constructor ấy tự dựng
-    /// <c>new FrontendContext()</c> trong thân hàm — không có tham số nào để đưa DB
-    /// test vào. Muốn test được thì <c>MpUserFull</c> phải nhận <c>FrontendContext</c>
-    /// qua tham số; đó là thay đổi ở code sản phẩm, không phải ở test.
+    /// KHÔNG PHỤ THUỘC DB. Cả hai hàm gán hết trường TRƯỚC khi gọi
+    /// <c>InsertFull()</c>/<c>SaveFull()</c>, nên phần ánh xạ kiểm được kể cả khi bước
+    /// ghi hỏng. Vì vậy nhóm này chạy được ở CẢ solution thật lẫn repo khung.
+    ///
+    /// Các đường đăng nhập nằm ở <see cref="FepControllerAuthenticateTests"/> — nhóm đó
+    /// có chạm DB nên tách riêng file.
     /// </summary>
     [Collection(StaticStateCollection.Name)]
     public class FepControllerTests : IDisposable
@@ -31,7 +30,6 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         public FepControllerTests() => AppSettings.JdWhiteList.Clear();
 
         public void Dispose() => AppSettings.JdWhiteList.Clear();
-
         // ── Gọi hàm private ─────────────────────────────────────────────────────
         // Hai hàm này là `private static` và GIỮ NGUYÊN như bản thật — không nới
         // thành internal chỉ để test gọi được. Đổi tên hàm thì hỏng lúc CHẠY, nên
@@ -93,9 +91,8 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
                 throw;
             }
         }
-
         // ══════════════════════════════════════════════════════════════════════
-        // 2. InsertNewVcbUser — kiểm trên đối tượng, không đụng DB
+        // InsertNewVcbUser — kiểm trên đối tượng, không đụng DB
         // ══════════════════════════════════════════════════════════════════════
 
         /// <summary>Không có mã JD thì thoát ngay, chưa gán trường nào.</summary>
@@ -242,6 +239,17 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             first.UHash.Should().NotBe(second.UHash);
         }
 
+        /// <summary>HCM thiếu số điện thoại: dùng <c>?.</c> nên không nổ, để null.</summary>
+        [Fact]
+        public void InsertNewVcbUser_WhenCanBoHasNoMobile_LeavesMobileNull()
+        {
+            var user = new MpUserFull();
+
+            InsertNewVcbUser(UserName, user, TestDataHelper.CreateCanBo(sdtDiDong: null));
+
+            user.Mobile.Should().BeNull("dung `?.` nen khong no, va khong bien thanh chuoi rong");
+        }
+
         /// <summary>
         /// GHI LẠI: HCM thiếu email thì tài khoản VẪN được tạo, mật khẩu "gửi" vào
         /// địa chỉ null — người dùng không bao giờ nhận được. Nhánh tạo mới dùng
@@ -259,7 +267,7 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // 3. CheckModified — kiểm trên đối tượng, không đụng DB
+        // CheckModified — kiểm trên đối tượng, không đụng DB
         // ══════════════════════════════════════════════════════════════════════
 
         private static MpUserFull ExistingUser(string? maJob = MaJob, string? avatar = null) => new()
@@ -330,6 +338,17 @@ namespace VcbPortalApi.UnitTests.Controllers.Frontend
             CheckModified(user, TestDataHelper.CreateCanBo(maJob: maJob, hoTen: "Ten moi"));
 
             user.FullName.Should().Be("Ten moi");
+        }
+
+        /// <summary>Đồng bộ cũng chuẩn hoá email và số điện thoại như lúc tạo mới.</summary>
+        [Fact]
+        public void CheckModified_WhenHcmHasNoMobile_ClearsMobile()
+        {
+            var user = ExistingUser(maJob: "JD_CU");
+
+            CheckModified(user, TestDataHelper.CreateCanBo(maJob: "JD_MOI", sdtDiDong: null));
+
+            user.Mobile.Should().BeNull("dong bo ghi de bang null chu khong giu so cu");
         }
 
         /// <summary>Đồng bộ cũng chuẩn hoá email và số điện thoại như lúc tạo mới.</summary>

@@ -2,13 +2,17 @@ using System.Net.Mail;
 using System.Text;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FILE KHUNG — CHÉP NGUYÊN VĂN từ ảnh code thật. ĐỪNG chép đè.
-// (Trước đây tôi để nhầm ở VcbPortalApi.Tools; bản thật nằm ở VcbPortalApi.Helpers.)
+// FILE KHUNG — chữ ký, thứ tự xử lý và quy ước trả về CHÉP NGUYÊN VĂN từ ảnh
+// code thật. ĐỪNG chép đè.
 //
-// CẢNH BÁO CHO NGƯỜI VIẾT TEST: hàm này gọi smtpClient.Send(mail) tới SMTP THẬT
-// (info.vietcombank.com.vn:587). Không có khe nào để tắt. Test nào chạy tới đây là
-// thật sự gửi mail — hoặc treo tới lúc timeout. InsertNewVcbUser gọi nó ngay sau
-// InsertFull(), nên chỉ an toàn khi InsertFull() ném trước.
+// MỘT CHỖ KHÁC BẢN THẬT, cùng lý do với FrontendContext.OnConfiguring: bản khung
+// KHÔNG thực hiện I/O ra ngoài. Bản thật mở SmtpClient tới
+// info.vietcombank.com.vn:587 rồi smtpClient.Send(mail) — nguyên văn ở khối
+// comment bên dưới. Giữ nguyên đoạn đó thì mỗi lần chạy test là một lần GỬI MAIL
+// THẬT, hoặc treo tới lúc timeout (đó chính là test 22 giây bên solution thật).
+//
+// CẢNH BÁO CHO SOLUTION THẬT: hàm này không có công tắc nào để tắt. Test nào chạy
+// tới đây là thật sự gửi mail. InsertNewVcbUser gọi nó ngay sau InsertFull().
 // ─────────────────────────────────────────────────────────────────────────────
 namespace VcbPortalApi.Helpers
 {
@@ -56,16 +60,18 @@ namespace VcbPortalApi.Helpers
                 mail.BodyEncoding = Encoding.GetEncoding("utf-8");
                 mail.Body = messages;
 
-                using var smtpClient = new SmtpClient
-                {
-                    Host = "info.vietcombank.com.vn", // 192.168.198.52
-                    UseDefaultCredentials = false,
-                };
-
-                smtpClient.EnableSsl = true;
-                smtpClient.Port = 587;
-
-                smtpClient.Send(mail);
+                // ── BẢN THẬT có đúng đoạn này. Bản khung KHÔNG chạy để tránh gửi mail ──
+                //
+                // using var smtpClient = new SmtpClient
+                // {
+                //     Host = "info.vietcombank.com.vn", // 192.168.198.52
+                //     UseDefaultCredentials = false,
+                // };
+                //
+                // smtpClient.EnableSsl = true;
+                // smtpClient.Port = 587;
+                //
+                // smtpClient.Send(mail);
 
                 AppSettings.Logger.Warn($"{to}|{subject}|{messages}");
             }
