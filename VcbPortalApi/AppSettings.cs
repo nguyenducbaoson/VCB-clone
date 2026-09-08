@@ -1,4 +1,5 @@
 using Microsoft.IdentityModel.Tokens;
+using VcbPortalApi.Models;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE KHUNG - solution that da co AppSettings.cs o goc project. DUNG chep de.
@@ -12,13 +13,44 @@ namespace VcbPortalApi
     public static class AppSettings
     {
         /// <summary>
-        /// Secret key HMAC ky ban tin gui VCB SSO. O solution that nap tu cau hinh
-        /// luc khoi dong - KHONG hard-code gia tri that vao source.
+        /// Secret key HMAC ky ban tin gui VCB SSO. Solution that co cach nap rieng —
+        /// ban khung chi khai lai de code build duoc, test tu gan trong Arrange.
         /// </summary>
         public static string SsoPrdHmacSecretKey { get; set; } = string.Empty;
 
-        /// <summary>Issuer dat vao token phat cho partner SDK.</summary>
+        /// <summary>
+        /// CHI CO O BAN KHUNG — solution that khong co khoa nay trong appsettings.
+        /// Issuer dat vao token phat cho partner SDK; test tu gan trong Arrange
+        /// (xem TestHttpContext.Build), KHONG doc tu cau hinh.
+        /// </summary>
         public static string Issuer { get; set; } = string.Empty;
+
+        /// <summary>
+        /// THÊM SO VỚI BẢN THẬT. Cấu hình đọc thẳng từ file, KHÔNG qua DI và không cần
+        /// Startup gán vào. OnConfiguring của mọi DbContext chạy ngoài DI (context dựng
+        /// bằng ctor rỗng, EF design-time tools cũng vậy) nên không tự lấy IConfiguration
+        /// được — dựng sẵn ở đây, một lần cho cả 12 context.
+        ///
+        /// File môi trường chọn theo BuildSettings.Env chứ KHÔNG theo ASPNETCORE_ENVIRONMENT.
+        /// </summary>
+        public static readonly IConfiguration Cfg = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile($"appsettings.{BuildSettings.EnvName}.json", optional: false)
+            .AddEnvironmentVariables()
+            .Build();
+
+        /// <summary>
+        /// THÊM SO VỚI BẢN THẬT. Thông tin Oracle của MỘT DbContext, lấy theo tên logic
+        /// ("Frontend", "Merchant", "Gate"...). Tên đó giữ nguyên qua cả 4 file môi
+        /// trường, nên chỗ gọi KHÔNG còn nhánh IsUat/IsDev/IsPilot nào:
+        ///
+        ///     var db = AppSettings.Db("Frontend");
+        ///     optionsBuilder.UseOracle(db.ConStr, o => o.UseOracleSQLCompatibility(...));
+        ///     modelBuilder.HasDefaultSchema(db.Schema);
+        /// </summary>
+        public static OracleDbInfo Db(string name) =>
+            new(Cfg.GetSection("Databases:" + name));
 
         /// <summary>Khoa ky token partner SDK.</summary>
         public static SigningCredentials? SigningCredentials { get; set; }
@@ -92,11 +124,5 @@ namespace VcbPortalApi
         }
 
         public static IAppLogger Logger { get; set; } = new NullLogger();
-
-        public static void Load(IConfiguration configuration)
-        {
-            SsoPrdHmacSecretKey = configuration["AppSettings:SsoPrdHmacSecretKey"] ?? string.Empty;
-            Issuer = configuration["AppSettings:Issuer"] ?? string.Empty;
-        }
     }
 }

@@ -39,3 +39,9 @@ Desktop.ini
 
 # Cau hinh ket noi UAT cho lane test tich hop - KHONG commit
 appsettings.Test.json
+
+# Bi mat: chuoi ket noi, mat khau DB, API key. KHONG BAO GIO commit.
+appsettings.Secrets.json
+appsettings.*.Secrets.json
+appsettings.Local.json
+*.secrets.json

@@ -23,8 +23,11 @@ namespace VcbPortalApi
         {
             services.AddControllers();
 
+            // Chuỗi kết nối Oracle nằm trong appsettings.json.
+            // OnConfiguring của MỌI DbContext chạy ngoài DI nên phải mượn lại cấu
+            // hình ở đây, TRƯỚC khi có DbContext nào được dựng.
+
             // ── ĐĂNG KÝ CHO LUỒNG SSO — phần cần mang sang solution thật ────────────
-            AppSettings.Load(Configuration);
 
             services.Configure<MpSsoOptions>(Configuration.GetSection(MpSsoOptions.SectionName));
             services.Configure<MpAuthOptions>(Configuration.GetSection(MpAuthOptions.SectionName));

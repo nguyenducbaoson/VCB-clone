@@ -46,5 +46,11 @@ namespace VcbPortalApi
         public static bool IsPilot => Env == BuildEnv.Pilot;
         public static bool IsProd => Env == BuildEnv.Prod;
         public static string FilesLocation => AppDomain.CurrentDomain.BaseDirectory + "Files\\" + Env.ToString().ToLower() + "\\";
+
+        /// <summary>
+        /// THÊM SO VỚI BẢN THẬT. Tên môi trường, để chọn appsettings.{EnvName}.json —
+        /// "Dev" | "Uat" | "Pilot" | "Prod". Env là private nên phải mở qua đây.
+        /// </summary>
+        public static string EnvName => Env.ToString();
     }
 }

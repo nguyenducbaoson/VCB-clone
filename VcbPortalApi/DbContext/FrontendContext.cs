@@ -14,7 +14,7 @@ using VcbPortalApi.Models.SSO;
 // HỆ QUẢ CHO TEST:
 // `new FrontendContext()` không có options nên OnConfiguring LUÔN vào nhánh tự cấu
 // hình. Ở BẢN THẬT đó là Oracle nên các chỗ tự `new FrontendContext()` trong thân
-// hàm sẽ chạm DB thật khi chạy test. Ở BẢN KHUNG là InMemory nên test chạy được.
+// hàm sẽ chạm DB thật khi chạy test. Bản khung ném rõ ràng thay vì nối bừa.
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,15 +39,17 @@ namespace VcbPortalApi.DbContext.Oracle
             : base(options)
         { }
 
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
             {
-                // BẢN THẬT:
-                //     var conStr = AppSettings.FrontDb.ConStr;
-                //     if (BuildSettings.IsUat || BuildSettings.IsDev) conStr = AppSettings.UatDb.ConStr;
-                //     if (BuildSettings.IsPilot) conStr = AppSettings.PilotDb.ConStr;
-                //     ... UseOracle(conStr)
+                // BẢN THẬT — sau khi tách 4 file appsettings theo BuildSettings:
+                //     var db = AppSettings.Db("Frontend");
+                //     optionsBuilder.UseOracle(db.ConStr, o => o.UseOracleSQLCompatibility(...));
+                //
+                // KHÔNG còn nhánh IsUat/IsDev/IsPilot: mỗi môi trường một file, khoá
+                // vẫn tên "Frontend", chỉ giá trị bên trong đổi.
                 //
                 // Bản khung không có Oracle nên ném rõ ràng. KHÔNG thay bằng InMemory:
                 // làm vậy là sửa hành vi so với bản thật.
@@ -80,6 +82,7 @@ namespace VcbPortalApi.DbContext.Oracle
         public MerchantContext() { }
 
         public MerchantContext(DbContextOptions<MerchantContext> options) : base(options) { }
+
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
