@@ -11,7 +11,6 @@ import {
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { url } from 'app/const/api-url';
 import { GetErrorText, ToastNotify } from 'app/helpers/common.helper';
 import {
     ShlxConfigItem,
@@ -204,7 +203,7 @@ export class ShlxConfigComponent {
 
                 const res = await lastValueFrom(
                     this._httpClient.post<ShlxConfigResponse>(
-                        environment.mainEndpoint + url.acqhub.shlxConfig + '?_=' + Date.now(),
+                        environment.mainEndpoint + 'acqh/shlx/cfg?_=' + Date.now(),
                         payload
                     )
                 );
