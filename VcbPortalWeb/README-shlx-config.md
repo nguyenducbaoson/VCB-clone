@@ -82,7 +82,7 @@ Nên frontend gọi `VcbPortalApi`, backend mới là chỗ ký và gọi sang A
 export const url = {
   // ... giữ nguyên phần cũ
   acqhub: {
-    shlxConfig: '/apimp/acqhub/shlx-config',
+    shlxConfig: 'acqh/shlx/cfg',   // theo quy uoc 'acqh/...', sua dung route backend
   },
 };
 ```
