@@ -1,0 +1,185 @@
+<div class="flex flex-col w-full max-w-2xl">
+
+  <div class="flex items-start justify-between px-6 pt-6">
+    <div>
+      <div class="font-mono text-sm tracking-widest text-warn-600">
+        NEW SHLX INSTALLATION
+      </div>
+      <div class="report-title mt-1 text-3xl font-bold leading-none">
+        Single request
+      </div>
+    </div>
+
+    <button mat-icon-button type="button" (click)="cancel()" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" />
+      </svg>
+    </button>
+  </div>
+
+  <div class="flex flex-col gap-4 px-6 py-5 max-h-[70vh] overflow-y-auto">
+
+    <form [formGroup]="form" class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+
+      <div class="flex flex-col gap-1">
+        <label class="text-xs tracking-wide uppercase text-secondary" for="f-merchant">MERCHANT_ID</label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input id="f-merchant" matInput formControlName="merchantId" autocomplete="off" />
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="text-xs tracking-wide uppercase text-secondary" for="f-terminal">TERMINAL_ID</label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input id="f-terminal" matInput formControlName="terminalId" autocomplete="off" />
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col gap-1 sm:col-span-2">
+        <label class="text-xs tracking-wide uppercase text-secondary" for="f-tname">TERMINAL_NAME</label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input id="f-tname" matInput formControlName="terminalName" autocomplete="off" />
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="text-xs tracking-wide uppercase text-secondary" for="f-dd">DD_ACCOUNT_NUMBER</label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input id="f-dd" matInput formControlName="ddAccountNumber" autocomplete="off" />
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="text-xs tracking-wide uppercase text-secondary" for="f-branch">BRANCH_CODE</label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input id="f-branch" matInput formControlName="branchCode" autocomplete="off" />
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="text-xs tracking-wide uppercase text-secondary" for="f-province">PROVINCE</label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input id="f-province" matInput formControlName="province" autocomplete="off" />
+        </mat-form-field>
+      </div>
+
+    </form>
+
+    <mat-divider class="my-1"></mat-divider>
+
+    <div class="report-options flex flex-wrap items-center gap-3">
+
+      <input
+        type="file"
+        hidden
+        accept=".xlsx"
+        (change)="onFileSelected($event)"
+        #f_input
+      />
+
+      <button
+        class="report-button"
+        mat-raised-button
+        color="primary"
+        type="button"
+        (click)="f_input.click()"
+      >
+        <mat-icon [svgIcon]="'heroicons_outline:arrow-up-tray'"></mat-icon>
+        Batch upload
+      </button>
+
+      @if (fileName()) {
+        <span class="font-mono text-sm text-secondary">{{ fileName() }}</span>
+      }
+
+    </div>
+
+    <dx-data-grid
+      [visible]="!!rows().length"
+      [dataSource]="rows()"
+      [showBorders]="true"
+      [columnAutoWidth]="true"
+      [hoverStateEnabled]="true"
+      height="260"
+      (onRowRemoved)="onRowRemoved($event)"
+    >
+
+      <dxo-data-grid-editing
+        [allowAdding]="false"
+        [allowUpdating]="false"
+        [allowDeleting]="true"
+        [confirmDelete]="false"
+      ></dxo-data-grid-editing>
+
+      <dxo-data-grid-scrolling mode="virtual"></dxo-data-grid-scrolling>
+
+      <dxi-data-grid-column type="buttons" [width]="40"></dxi-data-grid-column>
+
+      <dxi-data-grid-column dataField="terminalId" caption="TERMINAL_ID"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="ddAccountNumber" caption="DD_ACCOUNT_NUMBER"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="terminalName" caption="TERMINAL_NAME"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="merchantId" caption="MERCHANT_ID"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="province" caption="PROVINCE"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="branchCode" caption="BRANCH_CODE"></dxi-data-grid-column>
+    </dx-data-grid>
+
+    @if (rows().length) {
+      <div class="text-sm text-secondary">{{ rows().length }} rows will be submitted.</div>
+    }
+
+  </div>
+
+  <div class="flex flex-col gap-3 px-6 pt-3 pb-4 border-t">
+
+    @if (paddedBranchCodes().length) {
+      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900">
+        <div class="font-semibold">
+          {{ paddedBranchCodes().length }} branch codes had a leading zero restored
+        </div>
+        <div class="mt-1 font-mono text-xs">
+          {{ paddedBranchCodes().join(' · ') }}
+        </div>
+      </div>
+    }
+
+    <div class="px-4 py-3 text-sm rounded bg-warn-50 text-warn-900">
+      Remaining database values use the Excel H270:O270 defaults. Review the rows
+      before confirming batch registration.
+    </div>
+
+  <div class="flex items-center justify-end gap-3">
+    <button
+      class="report-button cancel-btn"
+      mat-raised-button
+      type="button"
+      (click)="cancel()"
+      [disabled]="submitting()"
+    >
+      Cancel
+    </button>
+
+    @if (rows().length) {
+      <button
+        class="report-button submit-btn"
+        mat-raised-button
+        type="button"
+        (click)="submitBatch()"
+        [disabled]="submitting()"
+      >
+        Confirm batch
+      </button>
+    } @else {
+      <button
+        class="report-button submit-btn"
+        mat-raised-button
+        type="button"
+        (click)="submitSingle()"
+        [disabled]="submitting()"
+      >
+        Submit single request
+      </button>
+    }
+    </div>
+  </div>
+
+</div>
