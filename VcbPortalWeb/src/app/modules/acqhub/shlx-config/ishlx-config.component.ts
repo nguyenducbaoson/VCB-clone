@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -18,9 +18,9 @@ import {
     ShlxConfigResponse,
     ShlxConfigResult,
 } from 'app/interfaces/shlx-config.interface';
+import { RequestService } from 'app/services/request.service';
 import { ez, ezTable, injectWorkSheet } from 'app/shared/state/excel';
 import { environment } from 'environments/environment';
-import { lastValueFrom } from 'rxjs';
 
 @Component({
     selector: 'ishlx-config',
@@ -32,7 +32,7 @@ import { lastValueFrom } from 'rxjs';
 export class ShlxConfigComponent {
     private _dialogRef = inject(MatDialogRef<ShlxConfigComponent>);
     private _fuseDialog = inject(FuseConfirmationService);
-    private _httpClient = inject(HttpClient);
+    private _requestService = inject(RequestService);
 
     worksheet = injectWorkSheet();
 
@@ -201,11 +201,9 @@ export class ShlxConfigComponent {
                     items: items.slice(i * size, (i + 1) * size),
                 };
 
-                const res = await lastValueFrom(
-                    this._httpClient.post<ShlxConfigResponse>(
-                        environment.mainEndpoint + 'acqh/shlx/cfg?_=' + Date.now(),
-                        payload
-                    )
+                const res: ShlxConfigResponse = await this._requestService.post(
+                    environment.mainEndpoint + 'acqh/shlx/cfg?_=' + Date.now(),
+                    payload
                 );
 
                 results.push(...(res?.results ?? []));
