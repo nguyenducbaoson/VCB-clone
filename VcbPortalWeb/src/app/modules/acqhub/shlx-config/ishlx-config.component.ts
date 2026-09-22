@@ -9,7 +9,6 @@ import {
     ViewEncapsulation,
 } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-import { Location } from '@angular/common';
 import { MatDialogRef } from '@angular/material/dialog';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { GetErrorText, ToastNotify } from 'app/helpers/common.helper';
@@ -31,8 +30,7 @@ import { environment } from 'environments/environment';
     standalone: false,
 })
 export class ShlxConfigComponent {
-    private _dialogRef = inject(MatDialogRef<ShlxConfigComponent>, { optional: true });
-    private _location = inject(Location);
+    private _dialogRef = inject(MatDialogRef<ShlxConfigComponent>);
     private _fuseDialog = inject(FuseConfirmationService);
     private _requestService = inject(RequestService);
 
@@ -227,7 +225,7 @@ export class ShlxConfigComponent {
 
         if (!failed.length) {
             ToastNotify(`Installed ${ok} of ${sent} terminals.`);
-            this._close(true);
+            this._dialogRef.close(true);
             return;
         }
 
@@ -250,19 +248,6 @@ export class ShlxConfigComponent {
     }
 
     cancel(): void {
-        this._close(false);
-    }
-
-    private _close(done: boolean): void {
-        if (this._dialogRef) {
-            this._dialogRef.close(done);
-            return;
-        }
-        if (done) {
-            this.form.reset();
-            this.clearBatch();
-            return;
-        }
-        this._location.back();
+        this._dialogRef.close(false);
     }
 }
