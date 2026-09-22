@@ -201,10 +201,10 @@ export class ShlxConfigComponent {
                     items: items.slice(i * size, (i + 1) * size),
                 };
 
-                const res: ShlxConfigResponse = await this._requestService.post(
+                const res = (await this._requestService.post(
                     environment.mainEndpoint + 'acqh/shlx/cfg?_=' + Date.now(),
                     payload
-                );
+                )) as ShlxConfigResponse;
 
                 results.push(...(res?.results ?? []));
             }
