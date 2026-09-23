@@ -2,10 +2,10 @@
 
   <div class="flex items-start justify-between px-6 pt-6">
     <div>
-      <div class="font-mono text-sm tracking-widest text-warn-600">
+      <div class="text-sm tracking-widest text-warn-600">
         NEW SHLX INSTALLATION
       </div>
-      <div class="report-title mt-1 text-3xl font-bold leading-none">
+      <div class="mt-1 text-2xl font-bold leading-none">
         Single request
       </div>
     </div>
@@ -19,52 +19,39 @@
 
   <div class="flex flex-col gap-4 px-6 py-5 max-h-[70vh] overflow-y-auto">
 
-    <form [formGroup]="form" class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+    <form [formGroup]="form" class="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
 
-      <div class="flex flex-col gap-1">
-        <label class="text-xs tracking-wide uppercase text-secondary" for="f-merchant">MERCHANT_ID</label>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input id="f-merchant" matInput formControlName="merchantId" autocomplete="off" />
-        </mat-form-field>
-      </div>
+      <mat-form-field class="w-full">
+        <mat-label>MERCHANT_ID</mat-label>
+        <input matInput formControlName="merchantId" autocomplete="off" />
+      </mat-form-field>
 
-      <div class="flex flex-col gap-1">
-        <label class="text-xs tracking-wide uppercase text-secondary" for="f-terminal">TERMINAL_ID</label>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input id="f-terminal" matInput formControlName="terminalId" autocomplete="off" />
-        </mat-form-field>
-      </div>
+      <mat-form-field class="w-full">
+        <mat-label>TERMINAL_ID</mat-label>
+        <input matInput formControlName="terminalId" autocomplete="off" />
+      </mat-form-field>
 
-      <div class="flex flex-col gap-1 sm:col-span-2">
-        <label class="text-xs tracking-wide uppercase text-secondary" for="f-tname">TERMINAL_NAME</label>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input id="f-tname" matInput formControlName="terminalName" autocomplete="off" />
-        </mat-form-field>
-      </div>
+      <mat-form-field class="w-full sm:col-span-2">
+        <mat-label>TERMINAL_NAME</mat-label>
+        <input matInput formControlName="terminalName" autocomplete="off" />
+      </mat-form-field>
 
-      <div class="flex flex-col gap-1">
-        <label class="text-xs tracking-wide uppercase text-secondary" for="f-dd">DD_ACCOUNT_NUMBER</label>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input id="f-dd" matInput formControlName="ddAccountNumber" autocomplete="off" />
-        </mat-form-field>
-      </div>
+      <mat-form-field class="w-full">
+        <mat-label>DD_ACCOUNT_NUMBER</mat-label>
+        <input matInput formControlName="ddAccountNumber" autocomplete="off" />
+      </mat-form-field>
 
-      <div class="flex flex-col gap-1">
-        <label class="text-xs tracking-wide uppercase text-secondary" for="f-branch">BRANCH_CODE</label>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input id="f-branch" matInput formControlName="branchCode" autocomplete="off" />
-        </mat-form-field>
-      </div>
+      <mat-form-field class="w-full">
+        <mat-label>BRANCH_CODE</mat-label>
+        <input matInput formControlName="branchCode" autocomplete="off" />
+      </mat-form-field>
 
-      <div class="flex flex-col gap-1">
-        <label class="text-xs tracking-wide uppercase text-secondary" for="f-province">PROVINCE</label>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input id="f-province" matInput formControlName="province" autocomplete="off" />
-        </mat-form-field>
-      </div>
+      <mat-form-field class="w-full">
+        <mat-label>PROVINCE</mat-label>
+        <input matInput formControlName="province" autocomplete="off" />
+      </mat-form-field>
 
     </form>
-
     <mat-divider class="my-1"></mat-divider>
 
     <div class="report-options flex flex-wrap items-center gap-3">
@@ -129,10 +116,10 @@
 
   </div>
 
-  <div class="flex flex-col gap-3 px-6 pt-3 pb-4 border-t">
+  <div class="flex flex-col gap-3 px-6 pt-3 pb-4 border-t border-gray-200 dark:border-gray-700">
 
     @if (paddedBranchCodes().length) {
-      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900">
+      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
         <div class="font-semibold">
           {{ paddedBranchCodes().length }} branch codes had a leading zero restored
         </div>
@@ -142,14 +129,14 @@
       </div>
     }
 
-    <div class="px-4 py-3 text-sm rounded bg-warn-50 text-warn-900">
+    <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
       Remaining database values use the Excel H270:O270 defaults. Review the rows
       before confirming batch registration.
     </div>
 
   <div class="flex items-center justify-end gap-3">
     <button
-      class="report-button cancel-btn"
+      class="report-button"
       mat-raised-button
       type="button"
       (click)="cancel()"
@@ -160,8 +147,9 @@
 
     @if (rows().length) {
       <button
-        class="report-button submit-btn"
+        class="report-button"
         mat-raised-button
+        color="warn"
         type="button"
         (click)="submitBatch()"
         [disabled]="submitting()"
@@ -170,8 +158,9 @@
       </button>
     } @else {
       <button
-        class="report-button submit-btn"
+        class="report-button"
         mat-raised-button
+        color="warn"
         type="button"
         (click)="submitSingle()"
         [disabled]="submitting()"
@@ -183,3 +172,4 @@
   </div>
 
 </div>
+

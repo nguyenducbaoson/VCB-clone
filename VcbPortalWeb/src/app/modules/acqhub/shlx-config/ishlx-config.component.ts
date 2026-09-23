@@ -6,10 +6,16 @@ import {
     effect,
     inject,
     signal,
+    untracked,
     ViewEncapsulation,
 } from '@angular/core';
-import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
 import { MatDialogRef } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { GetErrorText, ToastNotify } from 'app/helpers/common.helper';
 import {
@@ -20,6 +26,7 @@ import {
 } from 'app/interfaces/shlx-config.interface';
 import { RequestService } from 'app/services/request.service';
 import { ez, ezTable, injectWorkSheet } from 'app/shared/state/excel';
+import { DxDataGridModule } from 'devextreme-angular';
 import { environment } from 'environments/environment';
 
 @Component({
@@ -27,7 +34,16 @@ import { environment } from 'environments/environment';
     templateUrl: './ishlx-config.component.html',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: false,
+    standalone: true,
+    imports: [
+        ReactiveFormsModule,
+        MatButtonModule,
+        MatDividerModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatInputModule,
+        DxDataGridModule,
+    ],
 })
 export class ShlxConfigComponent {
     private _dialogRef = inject(MatDialogRef<ShlxConfigComponent>);
@@ -59,8 +75,10 @@ export class ShlxConfigComponent {
         effect(() => {
             const list = this.worksheet.sheetList();
             if (!list.length) return;
-            this.sheetControl.setValue(list[0].id);
-            this.selectSheet();
+            untracked(() => {
+                this.sheetControl.setValue(list[0].id);
+                this.selectSheet();
+            });
         });
     }
 
