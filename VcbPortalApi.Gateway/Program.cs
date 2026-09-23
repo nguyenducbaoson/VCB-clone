@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using Yarp.ReverseProxy;
 using Yarp.ReverseProxy.Forwarder;
@@ -28,6 +29,8 @@ if (!knownEnvs.Contains(envName, StringComparer.Ordinal))
 // thiếu — thay vì chạy tiếp với cấu hình rỗng rồi hỏng ở chỗ khó lần ra.
 // AddEnvironmentVariables() gọi lại ở cuối để biến môi trường vẫn thắng JSON.
 builder.Configuration
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddJsonFile($"appsettings.{envName}.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
@@ -64,74 +67,138 @@ if (envInFile != envName)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Giới hạn tần suất
+// Giới hạn tần suất — đọc thẳng section IpRateLimiting CÓ SẴN của VcbPortalApi
 //
-// Phân vùng theo IP client. Gateway là biên nên RemoteIpAddress CHÍNH LÀ IP
-// client — khác VcbPortalApi, nơi phải đọc X-Forwarded-For.
+// Gateway KHÔNG tự khai một bộ luật riêng. Hai bộ luật song song là hai thứ
+// phải nhớ sửa cùng lúc, và lần quên đầu tiên sẽ là lần gateway chặn khác API.
+// Đọc chung một section thì sửa một chỗ là cả hai cùng đổi.
 //
 // CHÚ Ý: bộ đếm nằm trong bộ nhớ tiến trình. Chạy nhiều instance gateway sau
 // load balancer thì hạn mức thực tế nhân lên theo số instance, và restart là
 // mất sạch bộ đếm. Muốn đúng con số phải đưa bộ đếm sang Redis.
 // ─────────────────────────────────────────────────────────────────────────────
-var trustForwardedFor = cfg.GetValue("RateLimit:TrustForwardedFor", false);
-var whitelist = cfg.GetSection("RateLimit:IpWhitelist").GetChildren()
-                   .Select(c => c.Value!).Where(v => !string.IsNullOrWhiteSpace(v))
-                   .ToHashSet(StringComparer.OrdinalIgnoreCase);
+var rl = cfg.GetSection("IpRateLimiting");
+
+// AspNetCoreRateLimit đọc IP thật từ header này vì nginx đứng trước. Để trống
+// thì dùng IP kết nối trực tiếp.
+var realIpHeader = rl["RealIPHeader"];
+
+var whitelist = rl.GetSection("IpWhitelist").GetChildren()
+                  .Select(c => c.Value!).Where(v => !string.IsNullOrWhiteSpace(v))
+                  .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
 string ClientIp(HttpContext ctx)
 {
-    if (trustForwardedFor)
+    if (!string.IsNullOrWhiteSpace(realIpHeader))
     {
-        var fwd = ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var fwd = ctx.Request.Headers[realIpHeader].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(fwd))
             return fwd.Split(',')[0].Trim();
     }
     return ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 }
 
-RateLimitPartition<string> Partition(HttpContext ctx, string prefix, int permit, int windowSeconds)
+// "1m" / "30m" / "3m" / "1h" / "1d" — đúng định dạng Period của AspNetCoreRateLimit.
+static TimeSpan ParsePeriod(string? period)
 {
-    var ip = ClientIp(ctx);
+    if (string.IsNullOrWhiteSpace(period) || period.Length < 2)
+        throw new InvalidOperationException($"Period khong hop le: '{period}'.");
 
-    // IP trong whitelist không bị giới hạn — giữ đúng ý nghĩa IpWhitelist
-    // mà VcbPortalApi đang dùng.
-    if (whitelist.Contains(ip))
-        return RateLimitPartition.GetNoLimiter($"{prefix}:free:{ip}");
-
-    return RateLimitPartition.GetSlidingWindowLimiter($"{prefix}:{ip}", _ =>
-        new SlidingWindowRateLimiterOptions
-        {
-            PermitLimit = permit,
-            Window = TimeSpan.FromSeconds(windowSeconds),
-
-            // Cửa sổ trượt chia 6 đoạn. Fixed window cho phép dồn cục ở ranh
-            // giới: 10 lần lúc 29:59 rồi 10 lần nữa lúc 30:01 là 20 lần trong
-            // 2 giây. Với endpoint đăng nhập thì đó đúng là kẽ hở cần bịt.
-            SegmentsPerWindow = 6,
-            QueueLimit = 0,
-        });
+    var value = int.Parse(period[..^1]);
+    return period[^1] switch
+    {
+        's' => TimeSpan.FromSeconds(value),
+        'm' => TimeSpan.FromMinutes(value),
+        'h' => TimeSpan.FromHours(value),
+        'd' => TimeSpan.FromDays(value),
+        _ => throw new InvalidOperationException($"Don vi Period khong hieu: '{period}'."),
+    };
 }
 
-var quotaMessage = cfg["RateLimit:QuotaExceededMessage"] ?? "Truy cap qua thuong xuyen.";
+// Endpoint dạng "POST:*/user/pwd" hoặc "*". Chuyển sang regex khớp với
+// "{VERB}:{path}" của request. Dấu * là ký tự đại diện, phần còn lại khớp y hệt.
+static Regex ToPattern(string endpoint)
+{
+    var pattern = "^" + string.Join(".*", endpoint.Split('*').Select(Regex.Escape)) + "$";
+    return new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+}
+
+var rules = rl.GetSection("GeneralRules").GetChildren()
+    .Select(r => new
+    {
+        Endpoint = r["Endpoint"] ?? "*",
+        Pattern = ToPattern(r["Endpoint"] ?? "*"),
+        Period = ParsePeriod(r["Period"]),
+        Limit = int.Parse(r["Limit"] ?? "0"),
+    })
+    .ToArray();
+
+if (rules.Length == 0)
+    throw new InvalidOperationException(
+        "IpRateLimiting:GeneralRules rong — kiem tra lai appsettings.json.");
+
+var quotaMessage = rl["QuotaExceededMessage"] ?? "Truy cap qua thuong xuyen.";
+var quotaStatusCode = rl.GetValue("HttpStatusCode", StatusCodes.Status429TooManyRequests);
 
 builder.Services.AddRateLimiter(o =>
 {
-    o.AddPolicy("general", ctx => Partition(ctx, "general",
-        cfg.GetValue("RateLimit:General:PermitLimit", 100),
-        cfg.GetValue("RateLimit:General:WindowSeconds", 180)));
+    // MỖI LUẬT một bộ đếm riêng, nối chuỗi lại: request phải qua được hết mới
+    // đi tiếp. Giống AspNetCoreRateLimit — luật "*" 100/3m và luật
+    // "POST:*/user/pwd" 10/30m cùng áp lên một request đổi mật khẩu, luật nào
+    // chạm trần trước thì luật đó chặn.
+    o.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+        rules.Select(rule =>
+            PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+            {
+                // /health là của hạ tầng, không phải của người dùng. Luật "*"
+                // 100/3m sẽ nuốt nó: load balancer poll mỗi giây là chạm trần
+                // sau 100 giây, rồi gateway tự báo mình chết dù vẫn khoẻ.
+                if (ctx.Request.Path.StartsWithSegments("/health"))
+                    return RateLimitPartition.GetNoLimiter("health");
 
-    o.AddPolicy("login", ctx => Partition(ctx, "login",
-        cfg.GetValue("RateLimit:Login:PermitLimit", 10),
-        cfg.GetValue("RateLimit:Login:WindowSeconds", 1800)));
+                var target = $"{ctx.Request.Method}:{ctx.Request.Path}";
+
+                // Luật không áp cho endpoint này thì không đếm. Luật "*" thành
+                // regex ^.*$ nên khớp mọi request, đúng ý nghĩa "tất cả".
+                if (!rule.Pattern.IsMatch(target))
+                    return RateLimitPartition.GetNoLimiter("bo-qua");
+
+                var ip = ClientIp(ctx);
+
+                // IP nội bộ trong IpWhitelist không bị giới hạn — giữ đúng ý
+                // nghĩa mà VcbPortalApi đang dùng.
+                if (whitelist.Contains(ip))
+                    return RateLimitPartition.GetNoLimiter($"free:{ip}");
+
+                return RateLimitPartition.GetSlidingWindowLimiter(
+                    $"{rule.Endpoint}|{ip}",
+                    _ => new SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = rule.Limit,
+                        Window = rule.Period,
+
+                        // Cửa sổ trượt chia 6 đoạn. Fixed window cho phép dồn cục
+                        // ở ranh giới: 10 lần lúc 29:59 rồi 10 lần nữa lúc 30:01
+                        // là 20 lần trong 2 giây. Với endpoint đăng nhập hay đổi
+                        // mật khẩu thì đó đúng là kẽ hở cần bịt.
+                        SegmentsPerWindow = 6,
+                        QueueLimit = 0,
+                    });
+            })
+        ).ToArray());
 
     // Trả về đúng hình dạng body mà VcbPortalApi đang trả khi vượt hạn mức,
     // để client không phải phân biệt lỗi đến từ gateway hay từ API.
     o.OnRejected = async (ctx, ct) =>
     {
-        ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        ctx.HttpContext.Response.StatusCode = quotaStatusCode;
         ctx.HttpContext.Response.ContentType = "application/json";
         await ctx.HttpContext.Response.WriteAsync(
-            JsonSerializer.Serialize(new { code = "429", message = quotaMessage }), ct);
+            JsonSerializer.Serialize(new
+            {
+                code = quotaStatusCode.ToString(),
+                message = quotaMessage,
+            }), ct);
     };
 });
 

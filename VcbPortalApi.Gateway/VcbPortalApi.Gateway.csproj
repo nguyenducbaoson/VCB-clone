@@ -12,17 +12,24 @@
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
 
+  <!-- Dung chung cau hinh voi VcbPortalApi: lien ket toi file cua no, gateway
+       khong giu ban sao rieng. Doi mot cho la ca hai cung doi.
+       Doi lai: gateway duoc trien khai kem toan bo bi mat cua API (mat khau
+       Oracle, khoa ky, API key) du no khong dung den thu nao. -->
   <ItemGroup>
-    <Content Update="appsettings.Dev.json">
+    <Content Include="../VcbPortalApi/appsettings.json" Link="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Update="appsettings.Uat.json">
+    <Content Include="../VcbPortalApi/appsettings.Dev.json" Link="appsettings.Dev.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Update="appsettings.Pilot.json">
+    <Content Include="../VcbPortalApi/appsettings.Uat.json" Link="appsettings.Uat.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Update="appsettings.Prod.json">
+    <Content Include="../VcbPortalApi/appsettings.Pilot.json" Link="appsettings.Pilot.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../VcbPortalApi/appsettings.Prod.json" Link="appsettings.Prod.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
