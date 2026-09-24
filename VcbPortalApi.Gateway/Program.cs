@@ -28,13 +28,33 @@ if (!knownEnvs.Contains(envName, StringComparer.Ordinal))
 // optional:false để thiếu file là ném ngay lúc khởi động, kèm đúng tên file
 // thiếu — thay vì chạy tiếp với cấu hình rỗng rồi hỏng ở chỗ khó lần ra.
 // AddEnvironmentVariables() gọi lại ở cuối để biến môi trường vẫn thắng JSON.
+//
+// PHẢI có CẢ HAI lời gọi. Bản không tiền tố đọc các biến thường. Bản tiền tố
+// "ASPNETCORE_" là thứ ánh xạ ASPNETCORE_URLS thành khoá "Urls" — nếu thiếu,
+// khoá "Urls" trong appsettings DÙNG CHUNG với VcbPortalApi sẽ thắng, và
+// gateway đi chiếm đúng cổng của API. Chạy riêng từng cái thì không thấy;
+// chạy song song thì cái khởi động sau chết vì cổng đã bị giữ.
 builder.Configuration
     .SetBasePath(AppContext.BaseDirectory)
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddJsonFile($"appsettings.{envName}.json", optional: false, reloadOnChange: true)
-    .AddEnvironmentVariables();
+    .AddEnvironmentVariables()
+    .AddEnvironmentVariables(prefix: "ASPNETCORE_");
 
 var cfg = builder.Configuration;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bỏ qua phần Kestrel trong file dùng chung
+//
+// appsettings là của VcbPortalApi, nên khoá "Kestrel" trong đó khai cổng của
+// API. Gateway đọc chung file, mặc định sẽ nghe ĐÚNG cổng đó và giành cổng với
+// API — chạy riêng từng cái thì không thấy, chạy song song thì cái sau chết.
+//
+// Kestrel:Endpoints ưu tiên cao hơn cả ASPNETCORE_URLS, nên không thể ghi đè
+// bằng biến môi trường. Cách duy nhất là trỏ Kestrel vào một section KHÔNG tồn
+// tại: nó không thấy endpoint nào và quay về dùng Urls/ASPNETCORE_URLS.
+// ─────────────────────────────────────────────────────────────────────────────
+builder.WebHost.ConfigureKestrel(o => o.Configure(cfg.GetSection("GatewayKestrel")));
 
 // Chốt an toàn: file nạp vào phải tự khai đúng môi trường nó phục vụ. Chép nhầm
 // appsettings.Dev.json đè lên Prod là app không khởi động được, thay vì âm thầm
@@ -137,8 +157,36 @@ if (rules.Length == 0)
     throw new InvalidOperationException(
         "IpRateLimiting:GeneralRules rong — kiem tra lai appsettings.json.");
 
-var quotaMessage = rl["QuotaExceededMessage"] ?? "Truy cap qua thuong xuyen.";
-var quotaStatusCode = rl.GetValue("HttpStatusCode", StatusCodes.Status429TooManyRequests);
+// Body khi vượt hạn mức lấy nguyên từ QuotaExceededResponse của
+// AspNetCoreRateLimit, để client nhận đúng thứ VcbPortalApi vẫn trả.
+var quota = rl.GetSection("QuotaExceededResponse");
+var quotaContentType = quota["ContentType"] ?? "application/json";
+var quotaStatusCode = quota.GetValue("StatusCode",
+                          rl.GetValue("HttpStatusCode", StatusCodes.Status429TooManyRequests));
+
+// AspNetCoreRateLimit chạy Content qua string.Format nên "{{" trong file là dấu
+// { thật, và nó điền {0}=Period, {1}=Limit, {2}=RetryAfter.
+//
+// Gateway KHÔNG điền được ba chỗ đó: bộ giới hạn nối chuỗi chỉ báo "đã bị chặn",
+// không cho biết LUẬT NÀO chặn, mà Period/Limit thì thuộc về luật. Content đang
+// dùng không có placeholder nào nên không ảnh hưởng — nếu sau này thêm vào thì
+// chúng sẽ ra rỗng.
+var quotaTemplate = quota["Content"]
+    ?? JsonSerializer.Serialize(new
+       {
+           code = quotaStatusCode.ToString(),
+           message = rl["QuotaExceededMessage"] ?? "Truy cap qua thuong xuyen.",
+       });
+
+string quotaBody;
+try
+{
+    quotaBody = string.Format(quotaTemplate, "", "", "");
+}
+catch (FormatException)
+{
+    quotaBody = quotaTemplate.Replace("{{", "{").Replace("}}", "}");
+}
 
 builder.Services.AddRateLimiter(o =>
 {
@@ -192,13 +240,8 @@ builder.Services.AddRateLimiter(o =>
     o.OnRejected = async (ctx, ct) =>
     {
         ctx.HttpContext.Response.StatusCode = quotaStatusCode;
-        ctx.HttpContext.Response.ContentType = "application/json";
-        await ctx.HttpContext.Response.WriteAsync(
-            JsonSerializer.Serialize(new
-            {
-                code = quotaStatusCode.ToString(),
-                message = quotaMessage,
-            }), ct);
+        ctx.HttpContext.Response.ContentType = quotaContentType;
+        await ctx.HttpContext.Response.WriteAsync(quotaBody, ct);
     };
 });
 
