@@ -1,5 +1,27 @@
 # Cài đặt SHLX qua ACQHUB — những việc còn lại
 
+## 0. Thứ tự cột file Excel — ĐÃ ĐỐI CHIẾU với template
+
+Dữ liệu bắt đầu từ **dòng 2**, tiêu đề ở dòng 1:
+
+| Cột | Tiêu đề | Kiểu ô trong template |
+|-----|---------|----------------------|
+| A | `TERMINAL_ID` | text |
+| B | `DD_ACCOUNT_NUMBER` | **số** |
+| C | `TERMINAL_NAME` | text |
+| D | `MERCHANT_ID` | text |
+| E | `PROVINCE` | text |
+| F | `BRANCH_CODE` | text |
+
+Component đọc **theo vị trí cột**, không theo tiêu đề — `label` trong
+`meta({ label })` chỉ dùng để in thông báo lỗi. Đổi thứ tự cột trong file là dữ
+liệu vào sai ô mà **không lỗi nào báo**, vì cả 6 cột đều là chuỗi bắt buộc.
+
+RỦI RO CÒN LẠI: `DD_ACCOUNT_NUMBER` lưu dạng SỐ trong template. Số tài khoản bắt
+đầu bằng 0 sẽ bị Excel cắt mất — cùng loại lỗi với `BRANCH_CODE`, nhưng không đệm
+lại được vì số tài khoản không có độ dài cố định. Xem mục 7.
+
+
 ## 1. Frontend không gọi thẳng ACQHUB
 
 Tài liệu đưa endpoint `http://__ACQHUB_HOST__:8829/api/acqhub/configpartner/v1/shlxconfig`,

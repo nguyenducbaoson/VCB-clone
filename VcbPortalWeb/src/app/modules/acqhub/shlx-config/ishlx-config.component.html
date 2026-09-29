@@ -6,7 +6,7 @@
         NEW SHLX INSTALLATION
       </div>
       <div class="mt-1 text-2xl font-bold leading-none">
-        Single request
+        Batch upload
       </div>
     </div>
 
@@ -18,41 +18,6 @@
   </div>
 
   <div class="flex flex-col gap-4 px-6 py-5 max-h-[70vh] overflow-y-auto">
-
-    <form [formGroup]="form" class="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-
-      <mat-form-field class="w-full">
-        <mat-label>MERCHANT_ID</mat-label>
-        <input matInput formControlName="merchantId" autocomplete="off" />
-      </mat-form-field>
-
-      <mat-form-field class="w-full">
-        <mat-label>TERMINAL_ID</mat-label>
-        <input matInput formControlName="terminalId" autocomplete="off" />
-      </mat-form-field>
-
-      <mat-form-field class="w-full sm:col-span-2">
-        <mat-label>TERMINAL_NAME</mat-label>
-        <input matInput formControlName="terminalName" autocomplete="off" />
-      </mat-form-field>
-
-      <mat-form-field class="w-full">
-        <mat-label>DD_ACCOUNT_NUMBER</mat-label>
-        <input matInput formControlName="ddAccountNumber" autocomplete="off" />
-      </mat-form-field>
-
-      <mat-form-field class="w-full">
-        <mat-label>BRANCH_CODE</mat-label>
-        <input matInput formControlName="branchCode" autocomplete="off" />
-      </mat-form-field>
-
-      <mat-form-field class="w-full">
-        <mat-label>PROVINCE</mat-label>
-        <input matInput formControlName="province" autocomplete="off" />
-      </mat-form-field>
-
-    </form>
-    <mat-divider class="my-1"></mat-divider>
 
     <div class="report-options flex flex-wrap items-center gap-3">
 
@@ -72,7 +37,7 @@
         (click)="f_input.click()"
       >
         <mat-icon [svgIcon]="'heroicons_outline:arrow-up-tray'"></mat-icon>
-        Batch upload
+        Chọn file Excel
       </button>
 
       @if (fileName()) {
@@ -80,6 +45,13 @@
       }
 
     </div>
+
+    @if (!rows().length) {
+      <div class="px-4 py-3 text-sm rounded bg-gray-50 text-secondary dark:bg-gray-800">
+        Chọn file Excel theo đúng mẫu để bắt đầu. Dữ liệu sẽ hiện ở đây để bạn
+        kiểm tra trước khi gửi.
+      </div>
+    }
 
     <dx-data-grid
       [visible]="!!rows().length"
@@ -134,42 +106,28 @@
       before confirming batch registration.
     </div>
 
-  <div class="flex items-center justify-end gap-3">
-    <button
-      class="report-button"
-      mat-raised-button
-      type="button"
-      (click)="cancel()"
-      [disabled]="submitting()"
-    >
-      Cancel
-    </button>
+    <div class="flex items-center justify-end gap-3">
+      <button
+        class="report-button"
+        mat-raised-button
+        type="button"
+        (click)="cancel()"
+        [disabled]="submitting()"
+      >
+        Cancel
+      </button>
 
-    @if (rows().length) {
       <button
         class="report-button"
         mat-raised-button
         color="warn"
         type="button"
         (click)="submitBatch()"
-        [disabled]="submitting()"
+        [disabled]="submitting() || !rows().length"
       >
         Confirm batch
       </button>
-    } @else {
-      <button
-        class="report-button"
-        mat-raised-button
-        color="warn"
-        type="button"
-        (click)="submitSingle()"
-        [disabled]="submitting()"
-      >
-        Submit single request
-      </button>
-    }
     </div>
   </div>
 
 </div>
-

@@ -2,20 +2,16 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
     ChangeDetectionStrategy,
     Component,
-    computed,
     effect,
     inject,
     signal,
     untracked,
     ViewEncapsulation,
 } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogRef } from '@angular/material/dialog';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { GetErrorText, ToastNotify } from 'app/helpers/common.helper';
 import {
@@ -35,15 +31,7 @@ import { environment } from 'environments/environment';
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    imports: [
-        ReactiveFormsModule,
-        MatButtonModule,
-        MatDividerModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatInputModule,
-        DxDataGridModule,
-    ],
+    imports: [MatButtonModule, MatIconModule, DxDataGridModule],
 })
 export class ShlxConfigComponent {
     private _dialogRef = inject(MatDialogRef<ShlxConfigComponent>);
@@ -59,17 +47,6 @@ export class ShlxConfigComponent {
 
     paddedBranchCodes = signal<string[]>([]);
     submitting = signal<boolean>(false);
-
-    isBatch = computed(() => this.rows().length > 0);
-
-    form = new FormGroup({
-        merchantId: new FormControl<string>('', Validators.required),
-        terminalId: new FormControl<string>('', Validators.required),
-        terminalName: new FormControl<string>('', Validators.required),
-        ddAccountNumber: new FormControl<string>('', Validators.required),
-        branchCode: new FormControl<string>('', Validators.required),
-        province: new FormControl<string>('', Validators.required),
-    });
 
     constructor() {
         effect(() => {
@@ -102,6 +79,9 @@ export class ShlxConfigComponent {
 
         const asText = (v: unknown) => String(v ?? '').trim();
 
+        // Đệm số 0 cho BRANCH_CODE, nhưng ghi nhớ theo CHỈ SỐ DÒNG chứ không theo
+        // giá trị: sau khi đệm thì '01400' gõ tay và '01400' vừa đệm giống hệt nhau,
+        // so theo giá trị sẽ báo nhầm cả những dòng vốn đã đúng.
         const paddedRows = new Set<number>();
         let branchRow = 0;
 
@@ -113,6 +93,9 @@ export class ShlxConfigComponent {
             return s.padStart(5, '0');
         };
 
+        // THỨ TỰ CỘT quyết định dữ liệu vào ô nào — label chỉ dùng để in thông báo
+        // lỗi. Đổi thứ tự cột trong file là dữ liệu vào sai ô mà không lỗi nào báo,
+        // vì cả 6 cột đều là chuỗi bắt buộc.
         const tableConfig = ezTable([
             ez
                 .preprocess(asText, ez.string().required())
@@ -144,6 +127,8 @@ export class ShlxConfigComponent {
 
         const result = this.worksheet.get(sheet.id, tableConfig);
 
+        // Một ô trống là KHÔNG nạp dòng nào cả: gửi nửa file lên rồi mới phát hiện
+        // thiếu thì khó lần ra cái nào đã gửi.
         if (result.issues.length) {
             this.rows.set([]);
             this._fuseDialog.open({
@@ -182,26 +167,12 @@ export class ShlxConfigComponent {
         this.rows.update((list) => list.filter((x) => x !== e.data));
     }
 
-    clearBatch(): void {
-        this.rows.set([]);
-        this.paddedBranchCodes.set([]);
-        this.fileName.set('');
-    }
-
-    async submitSingle(): Promise<void> {
-        if (this.form.invalid) {
-            this.form.markAllAsTouched();
-            ToastNotify('Please fill in all required fields.', 'error');
-            return;
-        }
-
-        const item = this.form.getRawValue() as ShlxConfigItem;
-        await this._send([item]);
-    }
-
     async submitBatch(): Promise<void> {
         const items = this.rows();
-        if (!items.length) return;
+        if (!items.length) {
+            ToastNotify('Chưa có dữ liệu. Hãy chọn file Excel trước.', 'error');
+            return;
+        }
 
         await this._send(items);
     }
@@ -220,7 +191,7 @@ export class ShlxConfigComponent {
                 };
 
                 const res = (await this._requestService.post(
-                    environment.mainEndpoint + 'acqh/shlx/cfg?_=' + Date.now(),
+                    environment.mainEndpoint + 'acqh/para/shlx?_=' + Date.now(),
                     payload
                 )) as ShlxConfigResponse;
 
@@ -237,6 +208,9 @@ export class ShlxConfigComponent {
         this._report(items.length, results);
     }
 
+    // ACQHUB trả HTTP 200 kể cả khi vài terminal hỏng — trạng thái thật nằm ở
+    // results[].success của từng cái. Dòng hỏng ở lại lưới để gửi lại, dòng thành
+    // công biến mất.
     private _report(sent: number, results: ShlxConfigResult[]): void {
         const failed = results.filter((r) => !r.success);
         const ok = results.length - failed.length;
