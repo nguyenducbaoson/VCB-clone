@@ -60,19 +60,10 @@
       [columnAutoWidth]="true"
       [hoverStateEnabled]="true"
       height="260"
-      (onRowRemoved)="onRowRemoved($event)"
+      (onRowPrepared)="onRowPrepared($event)"
     >
 
-      <dxo-data-grid-editing
-        [allowAdding]="false"
-        [allowUpdating]="false"
-        [allowDeleting]="true"
-        [confirmDelete]="false"
-      ></dxo-data-grid-editing>
-
       <dxo-data-grid-scrolling mode="virtual"></dxo-data-grid-scrolling>
-
-      <dxi-data-grid-column type="buttons" [width]="40"></dxi-data-grid-column>
 
       <dxi-data-grid-column dataField="terminalId" caption="TERMINAL_ID"></dxi-data-grid-column>
       <dxi-data-grid-column dataField="ddAccountNumber" caption="DD_ACCOUNT_NUMBER"></dxi-data-grid-column>
@@ -80,10 +71,29 @@
       <dxi-data-grid-column dataField="merchantId" caption="MERCHANT_ID"></dxi-data-grid-column>
       <dxi-data-grid-column dataField="province" caption="PROVINCE"></dxi-data-grid-column>
       <dxi-data-grid-column dataField="branchCode" caption="BRANCH_CODE"></dxi-data-grid-column>
+
+      <dxi-data-grid-column
+        caption="LỖI"
+        [visible]="!!rowErrors().size || !!apiErrors().size"
+        [calculateCellValue]="loiCuaDong"
+        [width]="240"
+      ></dxi-data-grid-column>
     </dx-data-grid>
 
-    @if (rows().length) {
+    @if (rows().length && !rowErrors().size && !apiErrors().size) {
       <div class="text-sm text-secondary">{{ rows().length }} rows will be submitted.</div>
+    }
+
+    @if (rowErrors().size) {
+      <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
+        <span class="font-semibold">{{ rowErrors().size }} dòng thiếu dữ liệu</span>
+        — các dòng tô đỏ ở trên. Sửa file Excel rồi tải lại; không gửi được khi còn dòng hỏng.
+      </div>
+    } @else if (apiErrors().size) {
+      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+        <span class="font-semibold">{{ apiErrors().size }} terminal chưa cài được</span>
+        — lý do ở cột LỖI. Sửa rồi bấm gửi lại; những terminal đã thành công không còn trong lưới.
+      </div>
     }
 
   </div>
@@ -123,7 +133,7 @@
         color="warn"
         type="button"
         (click)="submitBatch()"
-        [disabled]="submitting() || !rows().length"
+        [disabled]="submitting() || !rows().length || !!rowErrors().size"
       >
         Confirm batch
       </button>

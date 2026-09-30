@@ -32,6 +32,21 @@ import { environment } from 'environments/environment';
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [MatButtonModule, MatIconModule, DxDataGridModule],
+
+    // ViewEncapsulation.None nen selector phai du dac trung de khong dinh sang
+    // luoi khac trong trang.
+    styles: [
+        `
+        .shlx-config-dialog .dx-data-row.shlx-row-loi > td {
+            background-color: rgb(254 226 226);
+            color: rgb(127 29 29);
+        }
+        .dark .shlx-config-dialog .dx-data-row.shlx-row-loi > td {
+            background-color: rgb(127 29 29 / 0.35);
+            color: rgb(254 202 202);
+        }
+        `,
+    ],
 })
 export class ShlxConfigComponent {
     private _dialogRef = inject(MatDialogRef<ShlxConfigComponent>);
@@ -46,6 +61,13 @@ export class ShlxConfigComponent {
     rows = signal<ShlxConfigItem[]>([]);
 
     paddedBranchCodes = signal<string[]>([]);
+
+    /// Chi so dong -> thieu cot nao. Loi cua FILE: chan khong cho gui.
+    rowErrors = signal<Map<number, string>>(new Map());
+
+    /// terminalId -> ly do ACQHUB tu choi. Loi cua LAN GUI: hien ra nhung VAN
+    /// cho gui lai, vi sua xong hoac goi lai la co the qua.
+    apiErrors = signal<Map<string, string>>(new Map());
     submitting = signal<boolean>(false);
 
     constructor() {
@@ -64,6 +86,8 @@ export class ShlxConfigComponent {
 
         this.rows.set([]);
         this.paddedBranchCodes.set([]);
+        this.rowErrors.set(new Map());
+        this.apiErrors.set(new Map());
 
         const file: File = e.target.files[0];
         this.fileName.set(file.name);
@@ -96,54 +120,40 @@ export class ShlxConfigComponent {
         // THỨ TỰ CỘT quyết định dữ liệu vào ô nào — label chỉ dùng để in thông báo
         // lỗi. Đổi thứ tự cột trong file là dữ liệu vào sai ô mà không lỗi nào báo,
         // vì cả 6 cột đều là chuỗi bắt buộc.
+        //
+        // onError: 'skip_cell' chứ KHÔNG phải 'throw' — ô hỏng thì để trống ô đó
+        // nhưng vẫn nạp cả dòng. Có nạp thì mới tô được dòng lỗi trong lưới; 'throw'
+        // làm cả file không vào, người dùng chỉ thấy một hộp thoại rồi lưới trống.
         const tableConfig = ezTable([
             ez
                 .preprocess(asText, ez.string().required())
                 .meta({ label: 'TERMINAL_ID' })
-                .onError({ type: 'throw' }),
+                .onError({ type: 'skip_cell' }),
             ez
                 .preprocess(asText, ez.string().required())
                 .meta({ label: 'DD_ACCOUNT_NUMBER' })
-                .onError({ type: 'throw' }),
+                .onError({ type: 'skip_cell' }),
             ez
                 .preprocess(asText, ez.string().required())
                 .meta({ label: 'TERMINAL_NAME' })
-                .onError({ type: 'throw' }),
+                .onError({ type: 'skip_cell' }),
             ez
                 .preprocess(asText, ez.string().required())
                 .meta({ label: 'MERCHANT_ID' })
-                .onError({ type: 'throw' }),
+                .onError({ type: 'skip_cell' }),
             ez
                 .preprocess(asText, ez.string().required())
                 .meta({ label: 'PROVINCE' })
-                .onError({ type: 'throw' }),
+                .onError({ type: 'skip_cell' }),
             ez
                 .preprocess(asBranchCode, ez.string().required())
                 .meta({ label: 'BRANCH_CODE' })
-                .onError({ type: 'throw' }),
+                .onError({ type: 'skip_cell' }),
         ])
             .range(2, 10_000)
             .asArray();
 
         const result = this.worksheet.get(sheet.id, tableConfig);
-
-        // Một ô trống là KHÔNG nạp dòng nào cả: gửi nửa file lên rồi mới phát hiện
-        // thiếu thì khó lần ra cái nào đã gửi.
-        if (result.issues.length) {
-            this.rows.set([]);
-            this._fuseDialog.open({
-                title: `${result.issues.length} errors found`,
-                message: result.issues
-                    .map(
-                        (item) =>
-                            `[Row ${item.path[0]}, Col ${item.path[1]}]: ${item.message}`
-                    )
-                    .join('<br>'),
-                icon: { color: 'error' },
-                actions: { cancel: { show: false }, confirm: { label: 'OK' } },
-            });
-            return;
-        }
 
         const items: ShlxConfigItem[] = (result.data as string[][]).map((r) => ({
             terminalId: r[0],
@@ -154,6 +164,26 @@ export class ShlxConfigComponent {
             branchCode: r[5],
         }));
 
+        // Dòng thiếu ô nào thì ghi lại TÊN CỘT đó, không chỉ đánh dấu đỏ. Màu sắc
+        // một mình không nói được thiếu gì, và người mù màu thì không thấy.
+        const loi = new Map<number, string>();
+
+        items.forEach((x, i) => {
+            const thieu = ([
+                ['TERMINAL_ID', x.terminalId],
+                ['DD_ACCOUNT_NUMBER', x.ddAccountNumber],
+                ['TERMINAL_NAME', x.terminalName],
+                ['MERCHANT_ID', x.merchantId],
+                ['PROVINCE', x.province],
+                ['BRANCH_CODE', x.branchCode],
+            ] as const)
+                .filter(([, v]) => !v)
+                .map(([ten]) => ten);
+
+            if (thieu.length) loi.set(i, 'Thiếu: ' + thieu.join(', '));
+        });
+
+        this.rowErrors.set(loi);
         this.rows.set(items);
 
         this.paddedBranchCodes.set(
@@ -163,9 +193,18 @@ export class ShlxConfigComponent {
         );
     }
 
-    onRowRemoved(e: { data: ShlxConfigItem }): void {
-        this.rows.update((list) => list.filter((x) => x !== e.data));
+    /// DevExtreme goi cho TUNG dong luc ve. Them class de to do dong hong.
+    onRowPrepared(e: any): void {
+        if (e.rowType !== 'data') return;
+        if (this.loiCuaDong(e.data)) e.rowElement.classList.add('shlx-row-loi');
     }
+
+    /// Ly do hien o cot LOI. Gop ca hai nguon: thieu du lieu trong file, va
+    /// ACQHUB tu choi. Rong voi dong hop le.
+    loiCuaDong = (item: ShlxConfigItem): string =>
+        this.apiErrors().get(item?.terminalId) ??
+        this.rowErrors().get(this.rows().indexOf(item)) ??
+        '';
 
     async submitBatch(): Promise<void> {
         const items = this.rows();
@@ -174,11 +213,22 @@ export class ShlxConfigComponent {
             return;
         }
 
+        // Chặn gửi khi còn dòng hỏng: ACQHUB ghi cấu hình ở hệ thống ngoài, không
+        // rollback được, nên thả lên rồi sửa sau thì đã muộn.
+        if (this.rowErrors().size) {
+            ToastNotify(
+                `Còn ${this.rowErrors().size} dòng thiếu dữ liệu. Sửa file rồi tải lại.`,
+                'error'
+            );
+            return;
+        }
+
         await this._send(items);
     }
 
     private async _send(items: ShlxConfigItem[]): Promise<void> {
         this.submitting.set(true);
+        this.apiErrors.set(new Map());   // ket qua lan truoc khong con y nghia
 
         const size = environment.maxItemPerApi;
         const total = Math.ceil(items.length / size);
@@ -209,34 +259,46 @@ export class ShlxConfigComponent {
     }
 
     // ACQHUB trả HTTP 200 kể cả khi vài terminal hỏng — trạng thái thật nằm ở
-    // results[].success của từng cái. Dòng hỏng ở lại lưới để gửi lại, dòng thành
+    // results[].success của từng cái. Dòng hỏng ở lại lưới kèm lý do, dòng thành
     // công biến mất.
+    //
+    // Không dùng hộp thoại liệt kê nữa: lỗi hiện ngay trên dòng tương ứng, người
+    // dùng thấy được dòng nào hỏng vì sao mà không phải đối chiếu danh sách.
     private _report(sent: number, results: ShlxConfigResult[]): void {
         const failed = results.filter((r) => !r.success);
         const ok = results.length - failed.length;
 
         if (!failed.length) {
-            ToastNotify(`Installed ${ok} of ${sent} terminals.`);
+            ToastNotify(`Đã cài đặt ${ok}/${sent} terminal.`);
             this._dialogRef.close(true);
             return;
         }
 
-        this._fuseDialog
-            .open({
-                title: `${ok} of ${sent} succeeded, ${failed.length} failed`,
-                message: failed
-                    .map((r) => `${r.terminal_id}: [${r.result_code}] ${r.result_message}`)
-                    .join('<br>'),
-                icon: { color: 'warning' },
-                actions: { cancel: { show: false }, confirm: { label: 'OK' } },
-            })
-            .afterClosed()
-            .subscribe(() => {
-                const failedIds = new Set(failed.map((r) => r.terminal_id));
-                this.rows.update((list) =>
-                    list.filter((x) => failedIds.has(x.terminalId))
-                );
-            });
+        // ACQHUB từ chối terminal đã cài thay vì ghi đè. Tách riêng nhóm đó: tải
+        // lại đúng file cũ thì mọi dòng đều "đã tồn tại", mà đó không phải hỏng.
+        const daTonTai = failed.filter((r) =>
+            /already exist/i.test(r.result_message ?? '')
+        ).length;
+
+        this.apiErrors.set(
+            new Map(
+                failed.map((r) => [
+                    r.terminal_id,
+                    `[${r.result_code}] ${r.result_message}`,
+                ])
+            )
+        );
+
+        const failedIds = new Set(failed.map((r) => r.terminal_id));
+        this.rows.update((list) => list.filter((x) => failedIds.has(x.terminalId)));
+
+        const phan = [`${ok}/${sent} thành công`];
+        if (daTonTai) phan.push(`${daTonTai} đã tồn tại`);
+        if (failed.length - daTonTai) {
+            phan.push(`${failed.length - daTonTai} lỗi`);
+        }
+
+        ToastNotify(phan.join(', ') + '. Xem cột LỖI trong lưới.', 'warning');
     }
 
     cancel(): void {
