@@ -1,4 +1,4 @@
-<div class="flex flex-col w-full max-w-2xl">
+<div class="flex flex-col w-full max-w-3xl">
 
   <div class="flex items-start justify-between px-6 pt-6">
     <div>
@@ -6,7 +6,7 @@
         NEW SHLX INSTALLATION
       </div>
       <div class="mt-1 text-2xl font-bold leading-none">
-        Batch upload
+        Single request
       </div>
     </div>
 
@@ -17,39 +17,123 @@
     </button>
   </div>
 
-  <div class="flex flex-col gap-4 px-6 py-5 max-h-[70vh] overflow-y-auto">
+  <div class="flex flex-col gap-5 px-6 py-5 max-h-[70vh] overflow-y-auto">
 
+    <!-- ── Single request: 6 trường của ACQHUB ─────────────────────────────── -->
+    <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+
+      <label class="flex flex-col gap-1">
+        <span class="text-xs tracking-wider text-secondary">MERCHANT_ID</span>
+        <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+               [value]="form().merchantId" (input)="capNhatForm('merchantId', $event)" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-xs tracking-wider text-secondary">TERMINAL_ID</span>
+        <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+               [value]="form().terminalId" (input)="capNhatForm('terminalId', $event)" />
+      </label>
+
+      <label class="flex flex-col gap-1 sm:col-span-2">
+        <span class="text-xs tracking-wider text-secondary">TERMINAL_NAME</span>
+        <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+               [value]="form().terminalName" (input)="capNhatForm('terminalName', $event)" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-xs tracking-wider text-secondary">DD_ACCOUNT_NUMBER</span>
+        <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+               [value]="form().ddAccountNumber" (input)="capNhatForm('ddAccountNumber', $event)" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-xs tracking-wider text-secondary">BRANCH_CODE</span>
+        <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+               [value]="form().branchCode" (input)="capNhatForm('branchCode', $event)" />
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-xs tracking-wider text-secondary">PROVINCE</span>
+        <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+               [value]="form().province" (input)="capNhatForm('province', $event)" />
+      </label>
+    </div>
+
+    <!-- ── Ô tích: mở thêm 5 trường tạo user portal ────────────────────────── -->
+    <label class="flex flex-wrap items-center gap-2 text-sm cursor-pointer">
+      <input type="checkbox" [checked]="themUser()" (change)="doiCheDo($event)" />
+      <span class="font-semibold">Thêm thông tin user</span>
+      <span class="text-xs text-secondary">
+        — bỏ tích thì chỉ cài terminal ở ACQHUB, không tạo tài khoản đăng nhập
+      </span>
+    </label>
+
+    @if (themUser()) {
+      <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+
+        <label class="flex flex-col gap-1">
+          <span class="text-xs tracking-wider text-secondary">USER_NAME</span>
+          <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+                 [value]="form().userName" (input)="capNhatForm('userName', $event)" />
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="text-xs tracking-wider text-secondary">ROLE_ID</span>
+          <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+                 type="number" [value]="form().roleId" (input)="capNhatForm('roleId', $event)" />
+        </label>
+
+        <label class="flex flex-col gap-1 sm:col-span-2">
+          <span class="text-xs tracking-wider text-secondary">FULLNAME</span>
+          <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+                 [value]="form().fullName" (input)="capNhatForm('fullName', $event)" />
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="text-xs tracking-wider text-secondary">EMAIL</span>
+          <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+                 [value]="form().email" (input)="capNhatForm('email', $event)" />
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="text-xs tracking-wider text-secondary">MOBILE</span>
+          <input class="px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800"
+                 [value]="form().mobile" (input)="capNhatForm('mobile', $event)" />
+        </label>
+      </div>
+    }
+
+    @if (formLoi().length) {
+      <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
+        {{ formLoi().join('. ') }}
+      </div>
+    }
+
+    <hr class="border-gray-200 dark:border-gray-700" />
+
+    <!-- ── Batch upload ────────────────────────────────────────────────────── -->
     <div class="report-options flex flex-wrap items-center gap-3">
 
-      <input
-        type="file"
-        hidden
-        accept=".xlsx"
-        (change)="onFileSelected($event)"
-        #f_input
-      />
+      <input type="file" hidden accept=".xlsx" (change)="onFileSelected($event)" #f_input />
 
-      <button
-        class="report-button"
-        mat-raised-button
-        color="primary"
-        type="button"
-        (click)="f_input.click()"
-      >
-        <mat-icon [svgIcon]="'heroicons_outline:arrow-up-tray'"></mat-icon>
-        Chọn file Excel
+      <button class="report-button" mat-raised-button type="button" (click)="f_input.click()">
+        Batch upload
       </button>
 
       @if (fileName()) {
         <span class="font-mono text-sm text-secondary">{{ fileName() }}</span>
       }
-
     </div>
 
-    @if (!rows().length) {
+    @if (rows().length) {
       <div class="px-4 py-3 text-sm rounded bg-gray-50 text-secondary dark:bg-gray-800">
-        Chọn file Excel theo đúng mẫu để bắt đầu. Dữ liệu sẽ hiện ở đây để bạn
-        kiểm tra trước khi gửi.
+        Đang có file. <span class="font-semibold">Confirm batch</span> sẽ gửi
+        {{ rows().length }} dòng trong lưới, phần nhập tay phía trên bị bỏ qua.
+        @if (soDongTaoUser()) {
+          {{ soDongTaoUser() }} dòng có USER_NAME nên sẽ tạo user portal.
+        } @else {
+          File không có cột USER_NAME nên chỉ cài terminal.
+        }
       </div>
     }
 
@@ -66,50 +150,84 @@
       <dxo-data-grid-scrolling mode="virtual"></dxo-data-grid-scrolling>
 
       <dxi-data-grid-column dataField="terminalId" caption="TERMINAL_ID"></dxi-data-grid-column>
-      <dxi-data-grid-column dataField="ddAccountNumber" caption="DD_ACCOUNT_NUMBER"></dxi-data-grid-column>
-      <dxi-data-grid-column dataField="terminalName" caption="TERMINAL_NAME"></dxi-data-grid-column>
       <dxi-data-grid-column dataField="merchantId" caption="MERCHANT_ID"></dxi-data-grid-column>
-      <dxi-data-grid-column dataField="province" caption="PROVINCE"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="terminalName" caption="TERMINAL_NAME"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="ddAccountNumber" caption="DD_ACCOUNT_NUMBER"></dxi-data-grid-column>
       <dxi-data-grid-column dataField="branchCode" caption="BRANCH_CODE"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="province" caption="PROVINCE"></dxi-data-grid-column>
+
+      <dxi-data-grid-column dataField="userName" caption="USER_NAME" [visible]="coCotUser()"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="roleId" caption="ROLE_ID" [width]="90" [visible]="coCotUser()"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="fullName" caption="FULLNAME" [visible]="coCotUser()"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="email" caption="EMAIL" [visible]="coCotUser()"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="mobile" caption="MOBILE" [visible]="coCotUser()"></dxi-data-grid-column>
 
       <dxi-data-grid-column
         caption="LỖI"
-        [visible]="!!rowErrors().size || !!apiErrors().size"
+        [visible]="!!rowErrors().size || !!apiErrors().size || !!userErrors().size"
         [calculateCellValue]="loiCuaDong"
-        [width]="240"
+        [width]="280"
       ></dxi-data-grid-column>
     </dx-data-grid>
 
-    @if (rows().length && !rowErrors().size && !apiErrors().size) {
-      <div class="text-sm text-secondary">{{ rows().length }} rows will be submitted.</div>
-    }
-
     @if (rowErrors().size) {
       <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
-        <span class="font-semibold">{{ rowErrors().size }} dòng thiếu dữ liệu</span>
+        <span class="font-semibold">{{ rowErrors().size }} dòng chưa hợp lệ</span>
         — các dòng tô đỏ ở trên. Sửa file Excel rồi tải lại; không gửi được khi còn dòng hỏng.
       </div>
     } @else if (apiErrors().size) {
-      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+      <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
         <span class="font-semibold">{{ apiErrors().size }} terminal chưa cài được</span>
         — lý do ở cột LỖI. Sửa rồi bấm gửi lại; những terminal đã thành công không còn trong lưới.
+      </div>
+    }
+
+    @if (userErrors().size) {
+      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+        <span class="font-semibold">
+          {{ userErrors().size }} terminal đã cài xong nhưng CHƯA có user portal
+        </span>
+        — các dòng tô vàng.
+        <span class="font-semibold">Đừng bấm gửi lại</span>: ACQHUB đã ghi những
+        terminal này rồi, gửi lại chỉ nhận "already exist". Tạo user bằng màn hình
+        quản lý người dùng, hoặc báo quản trị.
+      </div>
+    }
+
+    @if (userCreated()) {
+      <div class="px-4 py-3 text-sm rounded bg-gray-50 text-secondary dark:bg-gray-800">
+        Đã tạo {{ userCreated() }} user. Mật khẩu ban đầu:
+        <span class="font-mono font-semibold">{{ matKhauBanDau }}</span>
+        — giống nhau cho mọi user tạo trong hôm nay, nhắc người dùng đổi ngay lần
+        đăng nhập đầu.
+      </div>
+    }
+
+    @if (paddedBranchCodes().length || paddedMobiles().length) {
+      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+        <div class="font-semibold">Đã khôi phục số 0 bị Excel cắt mất</div>
+
+        @if (paddedBranchCodes().length) {
+          <div class="mt-1">
+            {{ paddedBranchCodes().length }} BRANCH_CODE
+            <span class="font-mono text-xs">{{ paddedBranchCodes().join(' · ') }}</span>
+          </div>
+        }
+
+        @if (paddedMobiles().length) {
+          <div class="mt-1">
+            {{ paddedMobiles().length }} MOBILE
+            <span class="font-mono text-xs">{{ paddedMobiles().join(' · ') }}</span>
+          </div>
+        }
+
+        <div class="mt-1 text-xs">Đối chiếu với file gốc trước khi xác nhận.</div>
       </div>
     }
 
   </div>
 
   <div class="flex flex-col gap-3 px-6 pt-3 pb-4 border-t border-gray-200 dark:border-gray-700">
-
-    @if (paddedBranchCodes().length) {
-      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-        <div class="font-semibold">
-          {{ paddedBranchCodes().length }} branch codes had a leading zero restored
-        </div>
-        <div class="mt-1 font-mono text-xs">
-          {{ paddedBranchCodes().join(' · ') }}
-        </div>
-      </div>
-    }
 
     <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
       Remaining database values use the Excel H270:O270 defaults. Review the rows
@@ -133,7 +251,7 @@
         color="warn"
         type="button"
         (click)="submitBatch()"
-        [disabled]="submitting() || !rows().length || !!rowErrors().size"
+        [disabled]="submitting() || !!rowErrors().size"
       >
         Confirm batch
       </button>

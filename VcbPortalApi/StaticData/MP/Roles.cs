@@ -34,6 +34,9 @@ namespace VcbPortalApi.StaticData.MP
 
         // ── Các loại còn lại ───────────────────────────────────────────────────
         public const decimal RoleBca = 21;
+
+        /// <summary>Role mac dinh cua CreateUsers khi payload khong khai RoleId.</summary>
+        public const decimal RoleBcaTao = 21;
         public const decimal RoleShlx = 28;
         public const decimal RoleApi = 41;
 
@@ -48,6 +51,18 @@ namespace VcbPortalApi.StaticData.MP
 
         public static bool IsShlxRoles(decimal roleId) =>
             roleId is 28 or 29;
+
+        /// <summary>
+        /// CHUA DOI CHIEU BAN THAT. ApiCommon.CreateUsers goi Roles.IsMerchantRoles roi
+        /// trong nhanh do dung RoleBid/RoleMid, nen day la dai 1-2-3.
+        /// </summary>
+        public static bool IsMerchantRoles(decimal roleId) => IsAppRoles(roleId);
+
+        /// <summary>
+        /// CHUA DOI CHIEU BAN THAT. Co the hep hon IsBcaRoles o ban that — sua lai
+        /// thi code lan test deu khong phai doi, ca hai deu goi qua ham nay.
+        /// </summary>
+        public static bool IsBcaNewRoles(decimal roleId) => IsBcaRoles(roleId);
 
         public static bool IsApiRoles(decimal roleId) => roleId == RoleApi;
 
