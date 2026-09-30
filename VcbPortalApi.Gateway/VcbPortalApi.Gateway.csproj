@@ -12,6 +12,15 @@
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
 
+  <!-- Lien ket BuildSettings.cs cua VcbPortalApi thay vi chep ra ban rieng.
+       Gateway lay ten moi truong tu BuildSettings.Env — MOT nguon duy nhat cho
+       ca API lan gateway, sua mot dong la ca hai cung doi.
+       KHONG dung ProjectReference: lam vay se keo ca VcbPortalApi cung toan bo
+       phu thuoc cua no (Oracle, Firebase, NLog...) vao gateway. -->
+  <ItemGroup>
+    <Compile Include="../VcbPortalApi/BuildSettings.cs" Link="BuildSettings.cs" />
+  </ItemGroup>
+
   <!-- Dung chung cau hinh voi VcbPortalApi: lien ket toi file cua no, gateway
        khong giu ban sao rieng. Doi mot cho la ca hai cung doi.
        Doi lai: gateway duoc trien khai kem toan bo bi mat cua API (mat khau

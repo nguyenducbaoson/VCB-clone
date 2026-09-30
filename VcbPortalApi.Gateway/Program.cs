@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
+using VcbPortalApi;
 using Yarp.ReverseProxy;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Model;
@@ -8,22 +9,30 @@ using Yarp.ReverseProxy.Model;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Môi trường đọc LÚC CHẠY, không phải hằng lúc biên dịch
+// Môi trường lấy từ BuildSettings.Env của VcbPortalApi
 //
-// Khác VcbPortalApi (nơi BuildSettings.Env là const vì code đã viết vậy từ lâu),
-// gateway là project mới nên không có lý do gì phải chịu ràng buộc đó. Đọc lúc
-// chạy nghĩa là MỘT bản build chạy được cả 4 môi trường: bản đã kiểm ở UAT
-// chính là bản đẩy lên Prod, không phải build lại một bản chưa ai kiểm.
+// BuildSettings.cs được LIÊN KẾT vào project này qua csproj (xem <Compile
+// Include>), không chép ra bản riêng. Một nguồn duy nhất cho cả API lẫn
+// gateway: đổi môi trường là sửa đúng dòng `private const BuildEnv Env` rồi
+// build lại cả hai.
 //
-// Đặt qua biến môi trường ASPNETCORE_ENVIRONMENT trên từng máy chủ.
+// ASPNETCORE_ENVIRONMENT KHÔNG còn ảnh hưởng tới việc chọn cấu hình nữa. Đặt
+// sai, đặt giá trị lạ, hay không đặt — đều không đổi được gì. Nhờ vậy không còn
+// cả lớp lỗi "launchSettings khai Development", "quên export", "hai profile
+// khai hai môi trường khác nhau".
+//
+// ĐÁNH ĐỔI: vì là hằng lúc biên dịch nên MỖI MÔI TRƯỜNG MỘT BẢN BUILD. Bản đã
+// kiểm ở UAT không phải bản đẩy lên Prod. Chấp nhận để đồng bộ với API, vốn đã
+// làm vậy từ trước — hai quy trình deploy song song là hai chỗ để quên.
+//
+// Không cần kiểm envName có hợp lệ không: BuildEnv là enum, chỉ nhận đúng bốn
+// giá trị, trình biên dịch đã chặn từ trước.
 // ─────────────────────────────────────────────────────────────────────────────
-string[] knownEnvs = ["Dev", "Uat", "Pilot", "Prod"];
-var envName = builder.Environment.EnvironmentName;
+var envName = BuildSettings.EnvName;
 
-if (!knownEnvs.Contains(envName, StringComparer.Ordinal))
-    throw new InvalidOperationException(
-        $"ASPNETCORE_ENVIRONMENT = '{envName}' khong hop le. " +
-        $"Phai la mot trong: {string.Join(", ", knownEnvs)}.");
+// Cho ASP.NET dùng cùng một tên môi trường, để IsDevelopment() và trang lỗi chi
+// tiết không nói khác với cấu hình đang nạp.
+builder.Environment.EnvironmentName = envName;
 
 // optional:false để thiếu file là ném ngay lúc khởi động, kèm đúng tên file
 // thiếu — thay vì chạy tiếp với cấu hình rỗng rồi hỏng ở chỗ khó lần ra.
