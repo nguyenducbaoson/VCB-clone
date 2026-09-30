@@ -1,172 +1,205 @@
-# Cài đặt SHLX qua ACQHUB — những việc còn lại
+# Cài đặt SHLX qua ACQHUB
 
-## 0. Thứ tự cột file Excel — ĐÃ ĐỐI CHIẾU với template
+Cập nhật 30/09/2026. Đã chạy thật trên UAT, và bản có 5 cột user đã dựng + kiểm
+bằng Angular 20 headless trước khi giao.
 
-Dữ liệu bắt đầu từ **dòng 2**, tiêu đề ở dòng 1:
+---
 
-| Cột | Tiêu đề | Kiểu ô trong template |
-|-----|---------|----------------------|
-| A | `TERMINAL_ID` | text |
-| B | `DD_ACCOUNT_NUMBER` | **số** |
-| C | `TERMINAL_NAME` | text |
-| D | `MERCHANT_ID` | text |
-| E | `PROVINCE` | text |
-| F | `BRANCH_CODE` | text |
+## 1. Ba file trong thư mục này
 
-Component đọc **theo vị trí cột**, không theo tiêu đề — `label` trong
-`meta({ label })` chỉ dùng để in thông báo lỗi. Đổi thứ tự cột trong file là dữ
-liệu vào sai ô mà **không lỗi nào báo**, vì cả 6 cột đều là chuỗi bắt buộc.
+| File | Đặt vào `vcbportalweb` |
+|---|---|
+| `ishlx-config.component.ts` | `src/app/modules/acqhub/shlx-config/` |
+| `ishlx-config.component.html` | cùng chỗ |
+| `shlx-config.interface.ts` | `src/app/interfaces/` |
 
-RỦI RO CÒN LẠI: `DD_ACCOUNT_NUMBER` lưu dạng SỐ trong template. Số tài khoản bắt
-đầu bằng 0 sẽ bị Excel cắt mất — cùng loại lỗi với `BRANCH_CODE`, nhưng không đệm
-lại được vì số tài khoản không có độ dài cố định. Xem mục 7.
+## 2. Màn hình làm gì
 
+**Chỉ nhập bằng file Excel.** Không có form nhập tay.
 
-## 1. Frontend không gọi thẳng ACQHUB
-
-Tài liệu đưa endpoint `http://__ACQHUB_HOST__:8829/api/acqhub/configpartner/v1/shlxconfig`,
-nhưng Angular **không** gọi vào đó được:
-
-- `checkSum` là chuỗi SHA-256 64 ký tự, tính từ một khoá bí mật. Để khoá trong
-  trình duyệt là bất kỳ ai mở DevTools cũng lấy được rồi tự gọi ACQHUB.
-- `__ACQHUB_HOST__` là IP nội bộ, trình duyệt của người dùng không tới được.
-- ACQHUB không bật CORS cho domain portal.
-
-Nên frontend gọi `VcbPortalApi`, backend mới là chỗ ký và gọi sang ACQHUB —
-đúng khuôn `ImportShlxComponent` sẵn có (`environment.mainEndpoint + url.bca.shlx`).
-
-## 2. Hợp đồng giữa Angular và VcbPortalApi
-
-**Request** `POST {mainEndpoint}/apimp/acqhub/shlx-config`
-
-```json
-{
-  "items": [
-    {
-      "merchantId": "__MERCHANT_ID__",
-      "terminalId": "__TERMINAL_ID__",
-      "terminalName": "__TERMINAL_NAME__",
-      "ddAccountNumber": "__ACCOUNT_NUMBER__",
-      "branchCode": "01234",
-      "province": "__PROVINCE__"
-    }
-  ]
-}
+```
+Chon file .xlsx ─► luoi xem truoc ─► Confirm batch ─► ACQHUB cai terminal
+                                                   └─► portal tao user
 ```
 
-**Response** — trả nguyên hình dạng ACQHUB để frontend đọc `results[]`:
+Hai việc, theo đúng thứ tự đó. Terminal nào ACQHUB **không** cài được thì
+**không** tạo user cho nó — ngược lại là để lại một tài khoản đăng nhập được
+nhưng không có dữ liệu nào phía sau, và lỗi đó không tự lộ ra.
+
+## 3. Thứ tự cột Excel — CHỖ DỄ SAI NHẤT
+
+Đọc **theo vị trí cột**, dữ liệu từ dòng 2. `label` trong `meta({ label })` chỉ
+dùng để in thông báo lỗi.
+
+| Cột | Tiêu đề | Bắt buộc | Kiểu ô |
+|---|---|---|---|
+| A | `TERMINAL_ID` | ✔ | text |
+| B | `DD_ACCOUNT_NUMBER` | ✔ | **số** |
+| C | `TERMINAL_NAME` | ✔ | text |
+| D | `MERCHANT_ID` | ✔ | text |
+| E | `PROVINCE` | ✔ | text |
+| F | `BRANCH_CODE` | ✔ | text |
+| G | `USER_NAME` | ✔ | text |
+| H | `ROLE_ID` | — | số |
+| I | `FULLNAME` | — | text |
+| J | `EMAIL` | — | text |
+| K | `MOBILE` | — | text |
+
+⚠️ **Vị trí 5 cột G–K là GIẢ ĐỊNH của tôi**, chưa thấy file mẫu mới. File của bạn
+xếp khác là dữ liệu vào sai ô mà **không lỗi nào báo** — cả 11 cột đều đọc bằng
+`asText`. Sửa thứ tự trong `ezTable([...])` cho khớp, hoặc gửi ảnh dòng tiêu đề.
+
+Bỏ trống thì: `ROLE_ID` → backend mặc định **28**; `FULLNAME` → backend lấy chính
+`USER_NAME`.
+
+`BRANCH_CODE` được đệm về 5 ký tự nếu Excel trả kiểu số (`1400` → `01400`), mọi
+dòng bị đệm liệt kê ở chân dialog kèm `TERMINAL_ID` để đối chiếu file gốc.
+
+⚠️ `DD_ACCOUNT_NUMBER` lưu dạng **số** trong template. Số tài khoản bắt đầu bằng 0
+bị Excel cắt mất — cùng loại lỗi với `BRANCH_CODE` nhưng **không đệm lại được** vì
+số tài khoản không có độ dài cố định. Chưa xử lý, chờ xác nhận quy tắc.
+
+### `ROLE_ID` đọc bằng `asText` rồi mới đổi sang số — có lý do
+
+Đọc thẳng bằng `ez.number()` thì ô trống thành `0`, mà `0` **không phải** "bỏ
+trống": backend sẽ coi đó là ROLE_ID hợp lệ rồi từ chối cả dòng. Chuyển kiểu ở
+bước `.map()` — nơi phân biệt được rỗng với số:
+
+```ts
+roleId: r[7] ? Number(r[7]) : null,
+```
+
+## 4. Bốn điều kiện chặn TRƯỚC khi gửi
+
+Dòng nào vi phạm thì tô **đỏ**, nút Confirm bị khoá:
+
+1. thiếu một trong 7 cột bắt buộc
+2. `ROLE_ID` có giá trị nhưng không phải số
+3. `USER_NAME` **trùng với dòng khác trong cùng file** (không phân biệt hoa thường)
+4. — (ba điều trên là toàn bộ)
+
+Điều 3 đáng nói: `MP_SHLX_USERS` khoá theo `USER_NAME` và giữ **một**
+`TERMINAL_ID`. Hai dòng cùng `USER_NAME` thì chỉ dòng đầu tạo được user, dòng sau
+nhận "đã tồn tại" rồi im lặng — terminal thứ hai cài xong mà không ai đăng nhập
+được. Bắt trước khi gửi vì sau khi gửi thì ACQHUB đã ghi, không lùi được.
+
+## 5. Gọi API
+
+```ts
+const res = (await this._requestService.post(
+    environment.mainEndpoint + 'acqh/para/shlx?_=' + Date.now(),
+    payload
+)) as ShlxConfigResponse;
+```
+
+Route backend: `{tiền tố}/acqh/para/shlx`, method `AcqhParamController.ShlxConfig`.
+Tiền tố do `[RouteGroup(RouteTags.Main)]` sinh ra nên Pilot tự thành `apivp`.
+
+⚠️ Không có dấu `/` giữa `mainEndpoint` và chuỗi. Nếu `mainEndpoint` bên bạn
+**không** kết thúc bằng `/` thì đổi thành `'/acqh/para/shlx?_='`.
+
+Chia lô theo `environment.maxItemPerApi` — file 250 dòng thành 3 request.
+
+## 6. NĂM cột user KHÔNG được gửi sang ACQHUB
+
+Backend tách hai lớp: `ShlxUploadItem` (11 cột, Angular gửi lên) và
+`ShlxConfigItem` (6 cột, đi vào trường `data` ký gửi ACQHUB).
+
+Không phải chuyện sạch sẽ code. `ShlxConfigItem` bị base64 vào `data`; gộp hai lớp
+là `EMAIL`, `MOBILE`, `USER_NAME` **rời khỏi hệ thống VCB** — và không có gì báo,
+vì ACQHUB vẫn trả code 00. Repo khung có một bài test riêng cho điều này
+(`Cot_user_KHONG_duoc_gui_sang_ACQHUB`): giải base64 trường `data` rồi kiểm không
+có khoá nào trong 5 khoá đó.
+
+## 7. Response
 
 ```json
 {
-  "code": "00",
-  "message": "Succeed|Success",
-  "requestId": "__REQUEST_ID__",
-  "subCode": "00",
-  "subMessage": "Succeed|Success",
-  "serverTime": "20260916175239",
-  "nodeOut": "__ACQHUB_HOST__",
-  "operation": "ShlxConfig",
+  "code": "01",
+  "message": "Failed|One or more SHLX items failed",
   "results": [
-    {
-      "terminal_id": "__TERMINAL_ID__",
-      "merchant_account_id": 0,
-      "success": true,
-      "result_code": "00",
-      "result_message": "QR terminal and merchant config saved"
-    }
+    { "terminal_id": "V827308199", "success": true,  "result_code": "00", "result_message": "..." },
+    { "terminal_id": "V827308100", "success": false, "result_code": "01", "result_message": "... already exist ..." }
+  ],
+  "users": [
+    { "terminal_id": "V827308199", "user_name": "SHLX_CUCHI", "created": true, "message": "" }
   ]
 }
 ```
 
-## 3. Backend làm gì
+`code` ở ngoài là `"01"` khi **bất kỳ** terminal nào hỏng, kể cả khi phần lớn đã
+thành công. Trạng thái thật của từng cái nằm ở `results[].success`.
 
-1. Nhận `items`, dựng JSON `{"items":[...]}` rồi **base64** → trường `data`
-2. Đặt `clientId` = `portal_api`, `requestTime` = epoch milliseconds
-3. Tính `checkSum` (SHA-256, khoá lấy từ appsettings — cùng chỗ với nhóm `AcqHub`)
-4. POST sang `{AcqHub:ShlxConfigUrl}` — thêm khoá này vào 4 file appsettings,
-   giá trị UAT là `http://__ACQHUB_HOST__:8829/api/acqhub/configpartner/v1/shlxconfig`
-5. Đọc `results[]`, **với mỗi terminal `success: true` thì tạo user portal**
-   (yêu cầu "cài đặt thành công API ACQHUB xong thì tạo user portal luôn")
-6. Trả nguyên response ACQHUB về cho frontend
+`users` **chỉ có dòng của terminal ACQHUB đã cài xong**. Terminal hỏng không có
+dòng user nào — đó là chủ ý, không phải thiếu.
 
-Điểm cần chốt với người ra yêu cầu:
+## 8. Ba nhóm kết quả trên lưới
 
-- **Tạo user portal theo terminal hay theo merchant?** Một merchant có nhiều
-  terminal; tạo user cho từng terminal sẽ ra nhiều user trùng merchant.
-- **Nếu tạo user portal hỏng thì sao?** ACQHUB đã ghi cấu hình rồi, không rollback
-  được. Nên trả về trạng thái riêng cho bước này, đừng nuốt lỗi.
-- **Gọi lại cùng terminal thì ACQHUB xử lý thế nào** — ghi đè hay báo trùng?
-  Quyết định việc người dùng bấm gửi lại có an toàn không.
+| Nhóm | Màu | Ở lại lưới? | Gửi lại được? |
+|---|---|---|---|
+| Terminal cài xong + user tạo xong | — | không, biến mất | — |
+| Terminal ACQHUB từ chối | đỏ | có | **được** |
+| Terminal cài xong, user KHÔNG tạo được | vàng | có | **KHÔNG** |
 
-## 4. Thêm vào `src/app/const/api-url.ts`
+Nhóm vàng là nhóm mới và là nhóm nguy hiểm nhất. ACQHUB **đã ghi** terminal đó
+rồi; bấm gửi lại chỉ nhận `"already exist"`, không sửa được gì. Phải tạo user bằng
+màn hình quản lý người dùng. Dialog nói thẳng điều này thay vì để người dùng bấm
+lại rồi tưởng hệ thống hỏng.
 
-```ts
-export const url = {
-  // ... giữ nguyên phần cũ
-  acqhub: {
-    shlxConfig: 'acqh/shlx/cfg',   // theo quy uoc 'acqh/...', sua dung route backend
-  },
-};
-```
+## 9. Mật khẩu ban đầu
 
-Sửa lại cho khớp tiền tố thật của backend — `BuildSettings.FixedEndpoint` là
-`apimp` ở Dev/Uat/Prod nhưng `apivp` ở Pilot.
+`Shlx@yyMMdd` — công thức cố định trong nhánh SHLX của `ApiCommon.CreateUsers`.
+Dialog hiện ra sau khi tạo xong để người cài còn báo lại.
 
-## 5. Khai báo component trong module
+**Đây không phải bí mật.** Mọi user tạo trong cùng một ngày đều trùng mật khẩu, và
+ai đọc được dòng code đó cũng đoán ra. Nó chỉ chấp nhận được nếu portal **bắt đổi
+mật khẩu ở lần đăng nhập đầu**. Cần kiểm `Status = "0"` nghĩa là gì — "phải đổi
+mật khẩu" hay chỉ "đang hoạt động".
 
-Component để `standalone: false` theo đúng lối của dự án, nên phải khai trong
-NgModule của `modules/acqhub`. Module đó cần import:
+## 10. `ROLE_ID` bị chặn chỉ cho 28 và 29 — cố ý
 
-```ts
-MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule,
-MatSelectModule, MatDialogModule, MatDividerModule, MatProgressSpinnerModule,
-ReactiveFormsModule, DxDataGridModule
-```
+`ROLE_ID` là một ô Excel do người dùng gõ. `ApiCommon.CreateUsers` chấp nhận cả
+role VCB, BCA, Merchant. Chuyền thẳng ô đó vào là **quyền "cài đặt SHLX" trở thành
+quyền tự tạo tài khoản quản trị** (RoleId 19) chỉ bằng cách sửa một ô trong file.
 
-Thiếu `DxDataGridModule` là gặp đúng lỗi đang có ở `shlx.component.html`:
-`'dxi-data-grid-column' is not a known element`.
+Backend từ chối mọi role ngoài `Roles.IsShlxRoles` và ghi log cảnh báo kèm tên
+người gửi. Frontend không chặn — cố tình, để người dùng thấy lý do ở cột LỖI thay
+vì file bị từ chối mà không hiểu vì sao.
 
-## 6. Mở dialog
+## 11. Ba việc còn phải làm ở `vcbportalweb`
+
+**a) Gỡ `ShlxConfigComponent` khỏi `declarations`** trong `bca.module.ts` —
+component là `standalone: true`, để trong `declarations` sẽ ra `NG6008`. Module cha
+vẫn cần `MatDialogModule` để gọi `MatDialog.open()`.
+
+**b) Thêm nút mở dialog** vào màn hình cha:
 
 ```ts
-this._dialog.open(ShlxConfigComponent, {
-  panelClass: 'shlx-config-dialog',
-  disableClose: true,
-  autoFocus: false,
-});
+openShlxConfig(): void {
+    this._dialog.open(ShlxConfigComponent, {
+        panelClass: 'shlx-config-dialog',
+        disableClose: true,   // tranh bam ra ngoai lam mat file Excel da nap
+        autoFocus: false,
+    });
+}
 ```
 
-## 7. Ba quyết định đã chốt
+```html
+<button class="report-button" mat-raised-button color="primary" type="button"
+        (click)="openShlxConfig()">
+    <mat-icon [svgIcon]="'heroicons_outline:cog-6-tooth'"></mat-icon>
+    Cài đặt SHLX
+</button>
+```
 
-**`MERCHANT_ID`: để người dùng tự nhập.** Chưa rõ giá trị `__MERCHANT_ID__` trong
-mockup đến từ đâu, nên tạm để ô trống bắt buộc nhập. Khi biết nguồn (user đang
-đăng nhập, hay chọn từ danh sách) thì chỉ cần `setValue` trong constructor.
+`panelClass: 'shlx-config-dialog'` **bắt buộc** — CSS tô dòng đỏ/vàng gắn vào
+class đó. Thiếu nó thì lưới vẫn chạy nhưng không dòng nào đổi màu.
 
-**`BRANCH_CODE`: đệm về 5 ký tự, nhưng hiện danh sách các dòng đã đệm.**
+**c) Kiểm `environment.mainEndpoint`** kết thúc bằng `/` — xem mục 5.
 
-Mẫu ghi `01234`, ô định dạng text nên đọc ra đúng. Nhưng nếu file mất định dạng,
-Excel trả về số `1234` — gửi đi là sai chi nhánh mà không lỗi nào báo.
+## 12. Còn phải tự kiểm
 
-Gửi `1234` thì chắc chắn sai, nên đệm luôn tốt hơn để nguyên. Nhưng không sửa
-lặng lẽ: mọi dòng bị đệm được liệt kê ngay dưới lưới xem trước, kèm TERMINAL_ID,
-để người dùng đối chiếu với file gốc trước khi bấm gửi.
-
-Nếu mã chi nhánh không phải luôn 5 chữ số thì sửa số `5` trong `asBranchCode()`.
-
-**`H270:O270`: không đọc, chỉ là ghi chú cho người dùng.**
-
-Lý do: payload ACQHUB chỉ có đúng 6 trường, không có chỗ cho dữ liệu từ vùng đó.
-Câu "Remaining database values use the Excel H270:O270 defaults" đọc như lời giải
-thích cho người dùng rằng *các cột khác trong DB sẽ lấy giá trị mặc định*, chứ
-không phải yêu cầu ứng dụng đọc mấy ô đó rồi gửi đi.
-
-Nên frontend giữ nguyên câu đó làm ghi chú trên màn hình và **không** đọc vùng
-H270:O270. Nếu thực ra đó là dữ liệu phải gửi kèm thì cả hợp đồng API lẫn
-component đều phải sửa — báo tôi.
-
-## 8. Backend đã có sẵn
-
-Bạn nói phần backend đã xong, nên chỉ cần chỉnh `url.acqhub.shlxConfig` trỏ
-đúng đường dẫn thật. Nếu hợp đồng backend khác với mục 2 ở trên — tên trường,
-hình dạng response — gửi tôi để sửa lại `shlx-config.interface.ts` và hàm
-`_send()`.
+- **`onError({ type: 'skip_cell' })`** có phải giá trị hợp lệ trong thư viện `ez`
+  thật không. Ở đây tôi dựng stub theo chữ ký suy từ ảnh code.
+- **Thứ tự 5 cột mới** — mục 3.
+- **`ez.string()` không `.required()`** có đúng là dạng "cho phép rỗng" không.

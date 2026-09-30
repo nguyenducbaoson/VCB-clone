@@ -135,7 +135,8 @@ namespace VcbPortalApi.Models.MP.User
             return frontendContext.SaveChanges();
         }
 
-        private MpUserCommon ToCommonRow() => new()
+        /// <summary>Dòng MP_USERS_COMMON tương ứng. internal để UserService ghi được.</summary>
+        internal MpUserCommon ToCommonRow() => new()
         {
             UserName = UserName,
             RoleId = RoleId,

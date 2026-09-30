@@ -3,6 +3,7 @@ using VcbPortalApi.DbContext;
 using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Services;
 using VcbPortalApi.Services.AcqHub;
+using VcbPortalApi.Services.MP;
 using VcbPortalApi.Services.Sso;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +66,9 @@ namespace VcbPortalApi
 
                 http.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
             });
+            // Tạo user portal cho terminal SHLX vừa cài. Cùng vòng đời với request để
+            // dùng chung FrontendContext.
+            services.AddScoped<IUserService, UserService>();
             // ── HẾT PHẦN SHLX ───────────────────────────────────────────────────────
 
             // DbContext thật của solution dùng Oracle; ở bản khung để InMemory cho gọn.

@@ -1,4 +1,4 @@
-<div class="flex flex-col w-full max-w-2xl">
+<div class="flex flex-col w-full max-w-4xl">
 
   <div class="flex items-start justify-between px-6 pt-6">
     <div>
@@ -72,27 +72,57 @@
       <dxi-data-grid-column dataField="province" caption="PROVINCE"></dxi-data-grid-column>
       <dxi-data-grid-column dataField="branchCode" caption="BRANCH_CODE"></dxi-data-grid-column>
 
+      <dxi-data-grid-column dataField="userName" caption="USER_NAME"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="roleId" caption="ROLE_ID" [width]="90"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="fullName" caption="FULLNAME"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="email" caption="EMAIL"></dxi-data-grid-column>
+      <dxi-data-grid-column dataField="mobile" caption="MOBILE"></dxi-data-grid-column>
+
       <dxi-data-grid-column
         caption="LỖI"
-        [visible]="!!rowErrors().size || !!apiErrors().size"
+        [visible]="!!rowErrors().size || !!apiErrors().size || !!userErrors().size"
         [calculateCellValue]="loiCuaDong"
-        [width]="240"
+        [width]="280"
       ></dxi-data-grid-column>
     </dx-data-grid>
 
-    @if (rows().length && !rowErrors().size && !apiErrors().size) {
-      <div class="text-sm text-secondary">{{ rows().length }} rows will be submitted.</div>
+    @if (rows().length && !rowErrors().size && !apiErrors().size && !userErrors().size) {
+      <div class="text-sm text-secondary">
+        {{ rows().length }} rows will be submitted. Mỗi dòng sẽ cài terminal ở
+        ACQHUB rồi tạo user portal nếu user đó chưa có.
+      </div>
     }
 
     @if (rowErrors().size) {
       <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
-        <span class="font-semibold">{{ rowErrors().size }} dòng thiếu dữ liệu</span>
+        <span class="font-semibold">{{ rowErrors().size }} dòng chưa hợp lệ</span>
         — các dòng tô đỏ ở trên. Sửa file Excel rồi tải lại; không gửi được khi còn dòng hỏng.
       </div>
     } @else if (apiErrors().size) {
-      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+      <div class="px-4 py-3 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
         <span class="font-semibold">{{ apiErrors().size }} terminal chưa cài được</span>
         — lý do ở cột LỖI. Sửa rồi bấm gửi lại; những terminal đã thành công không còn trong lưới.
+      </div>
+    }
+
+    @if (userErrors().size) {
+      <div class="px-4 py-3 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+        <span class="font-semibold">
+          {{ userErrors().size }} terminal đã cài xong nhưng CHƯA có user portal
+        </span>
+        — các dòng tô vàng.
+        <span class="font-semibold">Đừng bấm gửi lại</span>: ACQHUB đã ghi những
+        terminal này rồi, gửi lại chỉ nhận "already exist". Tạo user bằng màn hình
+        quản lý người dùng, hoặc báo quản trị.
+      </div>
+    }
+
+    @if (userCreated()) {
+      <div class="px-4 py-3 text-sm rounded bg-gray-50 text-secondary dark:bg-gray-800">
+        Đã tạo {{ userCreated() }} user. Mật khẩu ban đầu:
+        <span class="font-mono font-semibold">{{ matKhauBanDau }}</span>
+        — giống nhau cho mọi user tạo trong hôm nay, nhắc người dùng đổi ngay lần
+        đăng nhập đầu.
       </div>
     }
 
