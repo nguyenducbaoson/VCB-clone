@@ -9,6 +9,13 @@
     <RootNamespace>VcbPortalApi</RootNamespace>
   </PropertyGroup>
 
+  <!-- De test kiem duoc phan dung phong bi ACQHUB (BuildEnvelope/ComputeCheckSum)
+       ma khong phai mo chung thanh public. Day la chi tiet noi bo cua client,
+       nhung lai la thu dang kiem nhat trong ca luong. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="VcbPortalApi.UnitTests" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />

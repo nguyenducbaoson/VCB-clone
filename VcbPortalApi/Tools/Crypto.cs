@@ -55,6 +55,17 @@ namespace VcbPortalApi.Tools
         }
 
         /// <summary>Mật khẩu tạm gửi qua email khi khởi tạo user mới.</summary>
+        /// <summary>
+        /// SHA-256 cua chuoi, tra HEX.
+        ///
+        /// CHU HOA hay thuong CAN XAC NHAN voi ban that: mau checkSum quan sat duoc
+        /// tu Postman viet HOA (B50294220EA2...), nen tam dung Convert.ToHexString.
+        /// Sai chu hoa/thuong la ACQHUB tu choi het, khong co loi nao khac.
+        /// </summary>
+        public static string Sha256EncryptString(string text) =>
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(text)));
+
         public static string GeneratePassword()
         {
             var all = Upper + Lower + Digit + Special;

@@ -52,6 +52,16 @@ namespace VcbPortalApi
         public static OracleDbInfo Db(string name) =>
             new(Cfg.GetSection("Databases:" + name));
 
+        // ── ACQHUB ─────────────────────────────────────────────────────────────
+        // THEM SO VOI BAN KHUNG. Ban that doc hai gia tri nay tu dau thi giu nguyen
+        // cho do — AcqRequest dung chung cho MOI endpoint ACQHUB, khong rieng SHLX.
+
+        /// <summary>Dinh danh ben goi do ACQHUB cap.</summary>
+        public static string AcqClientId => Cfg["AcqHub:ClientId"] ?? "";
+
+        /// <summary>Khoa bi mat tinh checkSum. Ghi de bang bien moi truong AcqHub__SecretKey.</summary>
+        public static string AcqSecretKey => Cfg["AcqHub:SecretKey"] ?? "";
+
         /// <summary>Khoa ky token partner SDK.</summary>
         public static SigningCredentials? SigningCredentials { get; set; }
 

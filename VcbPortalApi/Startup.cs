@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VcbPortalApi.DbContext;
 using VcbPortalApi.DbContext.Oracle;
 using VcbPortalApi.Services;
+using VcbPortalApi.Services.AcqHub;
 using VcbPortalApi.Services.Sso;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +47,25 @@ namespace VcbPortalApi
             services.AddScoped<IMpSsoAuthService, MpSsoAuthService>();
             services.AddScoped<IMpAppUserStatusService, MpAppUserStatusService>();
             // ── HẾT PHẦN CẦN MANG SANG ──────────────────────────────────────────────
+
+            // ── ĐĂNG KÝ CHO LUỒNG CÀI ĐẶT SHLX QUA ACQHUB ───────────────────────────
+
+            services.Configure<AcqHubShlxOptions>(
+                Configuration.GetSection(AcqHubShlxOptions.SectionName));
+
+            // HttpClient riêng, timeout dài hơn SSO: một lô có thể tới 100 terminal và
+            // ACQHUB xử lý tuần tự từng cái.
+            //
+            // KHÔNG đặt BaseAddress: ShlxConfigUrl trong cấu hình là URL tuyệt đối, để
+            // sau này thêm endpoint ACQHUB khác thì mỗi cái tự khai URL đầy đủ.
+            services.AddHttpClient<IAcqHubShlxClient, AcqHubShlxClient>((sp, http) =>
+            {
+                var options = sp.GetRequiredService<
+                    Microsoft.Extensions.Options.IOptions<AcqHubShlxOptions>>().Value;
+
+                http.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+            });
+            // ── HẾT PHẦN SHLX ───────────────────────────────────────────────────────
 
             // DbContext thật của solution dùng Oracle; ở bản khung để InMemory cho gọn.
             services.AddDbContext<VcbPortalDbContext>(o => o.UseInMemoryDatabase("skeleton"));
