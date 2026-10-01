@@ -15,8 +15,15 @@ import { MatSelectModule } from '@angular/material/select';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { DataGridHelper } from 'app/helpers/data-grid.helper';
 import { GetErrorText, ToastNotify } from 'app/helpers/common.helper';
+import { ShlxConfigItem } from 'app/interfaces/shlx-config.interface';
 import { ShlxConfigComponent } from 'app/modules/acqhub/shlx-config/ishlx-config.component';
 import { RequestService } from 'app/services/request.service';
+import {
+    kiemTraLoShlx,
+    laDongTrang,
+    laFileCauHinhTerminal,
+    ShlxBatchService,
+} from 'app/services/shlx-batch.service';
 import { ez, ezTable, injectWorkSheet } from 'app/shared/state/excel';
 import { url } from 'app/const/api-url';
 import { DxDataGridComponent, DxDataGridModule } from 'devextreme-angular';
@@ -40,15 +47,16 @@ interface ImportShlxResponse {
     desc: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FILE KHUNG — dựng lại từ ảnh chụp màn hình của solution thật. ĐỪNG chép đè.
-//
-// CHÉP NGUYÊN VĂN từ ảnh: selectSheet(), importData(), onFileSelected(),
-// openShlxConfig(), readFile(), setDefault(), ngAfterViewInit(), và toàn bộ HTML.
-//
-// TÔI TỰ VIẾT, ảnh bị che: khối import ở đầu file, decorator @Component,
-// @ViewChild, khai báo selectControl, hai interface ImportShlxPayload/Response.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Nhập dữ liệu từ file Excel — MỘT nút "Chọn file" cho HAI loại file:
+ *
+ *   1. Kết quả sát hạch  (STT, Ngày SHLX, Họ, Tên, CCCD, Hạng...) -> url.bca.shlx
+ *   2. Cấu hình terminal (TERMINAL_ID, MERCHANT_ID...)            -> acqh/para/shlx
+ *
+ * Nhận loại nào bằng DÒNG TIÊU ĐỀ, không bằng số cột: hai file đều có thể 11–14
+ * cột tuỳ lúc, còn chữ TERMINAL_ID thì chỉ file thứ hai mới có. Đọc nhầm schema
+ * là dữ liệu vào sai cột mà không lỗi nào báo.
+ */
 @Component({
     selector: 'import-shlx',
     templateUrl: './ishlx.component.html',
@@ -62,6 +70,26 @@ interface ImportShlxResponse {
         MatSelectModule,
         DxDataGridModule,
     ],
+    styles: [
+        `
+        .import-shlx .dx-data-row.shlx-row-loi > td {
+            background-color: rgb(254 226 226);
+            color: rgb(127 29 29);
+        }
+        .dark .import-shlx .dx-data-row.shlx-row-loi > td {
+            background-color: rgb(127 29 29 / 0.35);
+            color: rgb(254 202 202);
+        }
+        .import-shlx .dx-data-row.shlx-row-canh-bao > td {
+            background-color: rgb(254 243 199);
+            color: rgb(120 53 15);
+        }
+        .dark .import-shlx .dx-data-row.shlx-row-canh-bao > td {
+            background-color: rgb(120 53 15 / 0.35);
+            color: rgb(253 230 138);
+        }
+        `,
+    ],
 })
 export class ImportShlxComponent implements AfterViewInit {
     @ViewChild(DxDataGridComponent) dataGrid!: DxDataGridComponent;
@@ -74,11 +102,32 @@ export class ImportShlxComponent implements AfterViewInit {
         { key: string; label: string; dataType: any; format: any }[]
     >([]);
 
+    // ── Phần thêm cho luồng cấu hình terminal ──────────────────────────────
+
+    /** null = chưa đọc file nào. */
+    laFileTerminal = signal<boolean>(false);
+
+    /** Dữ liệu terminal đã chuyển kiểu, dùng để gửi. dataSource chỉ để hiển thị. */
+    private _terminals = signal<ShlxConfigItem[]>([]);
+
+    /** Chỉ số dòng -> lý do. Chặn không cho gửi. */
+    loiDong = signal<Map<number, string>>(new Map());
+
+    /** terminalId -> lý do ACQHUB từ chối. Sửa rồi gửi lại được. */
+    loiTerminal = signal<Map<string, string>>(new Map());
+
+    /** terminalId -> đã cài xong nhưng chưa có user. Gửi lại VÔ ÍCH. */
+    loiUser = signal<Map<string, string>>(new Map());
+
+    userDaTao = signal<number>(0);
+    dangGui = signal<boolean>(false);
+
     constructor(
         private _requestService: RequestService,
         private _httpClient: HttpClient,
         private dialog: MatDialog,
-        private fuseDialog: FuseConfirmationService
+        private fuseDialog: FuseConfirmationService,
+        private _shlx: ShlxBatchService
     ) {
         this.setDefault();
 
@@ -102,6 +151,15 @@ export class ImportShlxComponent implements AfterViewInit {
 
         this.setDefault();
 
+        this.dataSource.set([]);
+        this.columns.set([]);
+        this._terminals.set([]);
+        this.loiDong.set(new Map());
+        this.loiTerminal.set(new Map());
+        this.loiUser.set(new Map());
+        this.userDaTao.set(0);
+        this.laFileTerminal.set(false);
+
         const file: File = e.target.files[0];
 
         if (file) this.worksheet.load(file);
@@ -109,6 +167,7 @@ export class ImportShlxComponent implements AfterViewInit {
 
     openShlxConfig(): void {
         this.dialog.open(ShlxConfigComponent, {
+            panelClass: 'shlx-config-dialog',
             disableClose: true,
             autoFocus: false,
             maxWidth: '42rem',
@@ -137,6 +196,22 @@ export class ImportShlxComponent implements AfterViewInit {
 
         if (!sheetSelect) return;
 
+        // Rẽ nhánh TRƯỚC khi dựng schema. Dựng nhầm schema cho file kia thì
+        // transformToNumber gặp "V827308100" và cả file hỏng mà thông báo lại
+        // nói về STT — không ai lần ra được.
+        if (laFileCauHinhTerminal(() => this._docDongTieuDe(sheetSelect.id))) {
+            this.laFileTerminal.set(true);
+            this._docFileTerminal(sheetSelect.id);
+            return;
+        }
+
+        this.laFileTerminal.set(false);
+        this._docFileKetQua(sheetSelect.id);
+    }
+
+    // ── Luồng cũ: kết quả sát hạch ─────────────────────────────────────────
+
+    private _docFileKetQua(sheetId: number) {
         const transformToNumber = (input: unknown) => {
             if (typeof input === 'number') return input;
             if (String(input ?? '') === '') return null;
@@ -224,7 +299,7 @@ export class ImportShlxComponent implements AfterViewInit {
             .range(2, 10_000)
             .asArray();
 
-        const result = this.worksheet.get(sheetSelect.id, tableConfig);
+        const result = this.worksheet.get(sheetId, tableConfig);
 
         if (result.issues.length) {
             this.fuseDialog.open({
@@ -253,7 +328,225 @@ export class ImportShlxComponent implements AfterViewInit {
         this.columns.set(columns);
     }
 
+    // ── Luồng mới: cấu hình terminal ───────────────────────────────────────
+
+    /** Dòng 1 của sheet, dạng mảng chuỗi. Chỉ để nhận loại file. */
+    private _docDongTieuDe(sheetId: number): string[] {
+        const cfg = ezTable(
+            Array.from({ length: 14 }, () =>
+                ez.preprocess(
+                    (v: unknown) => String(v ?? '').trim(),
+                    ez.string()
+                )
+            )
+        )
+            .range(1, 1)
+            .asArray();
+
+        return ((this.worksheet.get(sheetId, cfg).data as string[][])[0] ??
+            []) as string[];
+    }
+
+    private _docFileTerminal(sheetId: number) {
+        const asText = (v: unknown) => String(v ?? '').trim();
+
+        // Đệm số 0 cho BRANCH_CODE, nhớ theo CHỈ SỐ DÒNG chứ không theo giá trị:
+        // sau khi đệm thì '01400' gõ tay và '01400' vừa đệm giống hệt nhau.
+        const daDem = new Set<number>();
+        let dongBranch = 0;
+
+        const asBranchCode = (v: unknown) => {
+            const dong = dongBranch++;
+            const s = asText(v);
+            if (typeof v !== 'number' || s.length >= 5) return s;
+            daDem.add(dong);
+            return s.padStart(5, '0');
+        };
+
+        // KHÔNG cột nào .required(). Đã đo trên `ez` thật: một ô required trượt
+        // thì CẢ DÒNG bị loại khỏi result.data, kể cả với onError 'skip_cell'.
+        // Dòng thiếu TERMINAL_ID sẽ biến mất thay vì hiện đỏ, và người dùng chỉ
+        // thấy "file không có dòng nào".
+        const cot = (label: string) =>
+            ez.preprocess(asText, ez.string()).meta({ label });
+
+        const tableConfig = ezTable([
+            cot('TERMINAL_ID'),
+            cot('DD_ACCOUNT_NUMBER'),
+            cot('TERMINAL_NAME'),
+            cot('MERCHANT_ID'),
+            cot('PROVINCE'),
+            ez.preprocess(asBranchCode, ez.string()).meta({ label: 'BRANCH_CODE' }),
+            cot('USER_NAME'),
+            cot('ROLE_ID'),
+            cot('FULLNAME'),
+            cot('EMAIL'),
+            cot('MOBILE'),
+        ])
+            .range(2, 10_000)
+            .asArray();
+
+        const result = this.worksheet.get(sheetId, tableConfig);
+
+        // .range(2, 10_000) luôn trả 9999 dòng, phần lớn trống. Bỏ trước khi làm
+        // gì khác, không thì mỗi dòng trắng ăn một lỗi "Thiếu: ...".
+        const items: ShlxConfigItem[] = (result.data as string[][])
+            .map((r) => ({
+                terminalId: r[0],
+                ddAccountNumber: r[1],
+                terminalName: r[2],
+                merchantId: r[3],
+                province: r[4],
+                branchCode: r[5],
+                userName: r[6],
+                // Rỗng -> null. Number('') là 0, mà 0 là ROLE_ID "có giá trị"
+                // nên backend sẽ từ chối cả dòng.
+                roleId: r[7] ? Number(r[7]) : null,
+                fullName: r[8],
+                email: r[9],
+                mobile: r[10],
+            }))
+            .filter((x) => !laDongTrang(x));
+
+        const loi = kiemTraLoShlx(items);
+
+        this._terminals.set(items);
+        this.loiDong.set(loi);
+
+        const coUser = items.some((x) => !!x.userName);
+
+        const cols: any[] = [
+            { key: 'terminalId', label: 'TERMINAL_ID' },
+            { key: 'ddAccountNumber', label: 'DD_ACCOUNT_NUMBER' },
+            { key: 'terminalName', label: 'TERMINAL_NAME' },
+            { key: 'merchantId', label: 'MERCHANT_ID' },
+            { key: 'province', label: 'PROVINCE' },
+            { key: 'branchCode', label: 'BRANCH_CODE' },
+        ];
+
+        // File không có phần user thì 5 cột rỗng chỉ làm nhiễu mắt.
+        if (coUser) {
+            cols.push(
+                { key: 'userName', label: 'USER_NAME' },
+                { key: 'roleId', label: 'ROLE_ID' },
+                { key: 'fullName', label: 'FULLNAME' },
+                { key: 'email', label: 'EMAIL' },
+                { key: 'mobile', label: 'MOBILE' }
+            );
+        }
+
+        cols.push({ key: '__loi', label: 'LỖI' });
+
+        this.columns.set(cols);
+        this.dataSource.set(this._dungDongHienThi(items));
+
+        if (daDem.size) {
+            ToastNotify(
+                `${daDem.size} BRANCH_CODE đã khôi phục số 0 bị Excel cắt mất. Đối chiếu file gốc trước khi gửi.`,
+                'warning'
+            );
+        }
+    }
+
+    /** Dòng cho lưới = dữ liệu + cột __loi gộp từ ba nguồn. */
+    private _dungDongHienThi(items: ShlxConfigItem[]): any[] {
+        return items.map((x, i) => ({
+            ...x,
+            __loi:
+                this.loiUser().get(x.terminalId) ??
+                this.loiTerminal().get(x.terminalId) ??
+                this.loiDong().get(i) ??
+                '',
+        }));
+    }
+
+    onRowPrepared(e: any): void {
+        if (e.rowType !== 'data' || !this.laFileTerminal()) return;
+
+        if (this.loiUser().get(e.data?.terminalId)) {
+            e.rowElement.classList.add('shlx-row-canh-bao');
+            return;
+        }
+
+        if (e.data?.__loi) e.rowElement.classList.add('shlx-row-loi');
+    }
+
+    // ── Cập nhật: rẽ theo loại file ────────────────────────────────────────
+
     async importData() {
+        if (this.laFileTerminal()) {
+            await this._guiLoTerminal();
+            return;
+        }
+
+        await this._guiKetQua();
+    }
+
+    private async _guiLoTerminal() {
+        const items = this._terminals();
+
+        if (!items.length) {
+            ToastNotify('Chưa có dữ liệu. Chọn file rồi bấm Đọc dữ liệu.', 'error');
+            return;
+        }
+
+        // Chặn khi còn dòng hỏng: ACQHUB ghi cấu hình ở hệ thống ngoài, không
+        // rollback được, nên thả lên rồi sửa sau thì đã muộn.
+        if (this.loiDong().size) {
+            ToastNotify(
+                `Còn ${this.loiDong().size} dòng chưa hợp lệ. Xem cột LỖI.`,
+                'error'
+            );
+            return;
+        }
+
+        this.dangGui.set(true);
+
+        try {
+            const kq = await this._shlx.guiLo(items);
+
+            this.userDaTao.set(kq.userDaTao);
+            this.loiTerminal.set(kq.loiTerminal);
+            this.loiUser.set(kq.loiUser);
+
+            if (!kq.loiTerminal.size && !kq.loiUser.size) {
+                ToastNotify(
+                    `Đã cài ${kq.terminalXong}/${kq.daGui} terminal, tạo ${kq.userDaTao} user.` +
+                        (kq.userDaTao ? ` Mật khẩu: ${kq.matKhauBanDau}` : '')
+                );
+
+                this._terminals.set([]);
+                this.dataSource.set([]);
+                return;
+            }
+
+            // Giữ lại dòng cần nhìn: ACQHUB từ chối (gửi lại được) và đã cài mà
+            // thiếu user (gửi lại KHÔNG được, phải xử tay).
+            const canXem = new Set([
+                ...kq.loiTerminal.keys(),
+                ...kq.loiUser.keys(),
+            ]);
+
+            const conLai = items.filter((x) => canXem.has(x.terminalId));
+
+            this._terminals.set(conLai);
+            this.loiDong.set(new Map());
+            this.dataSource.set(this._dungDongHienThi(conLai));
+
+            const phan = [`${kq.terminalXong}/${kq.daGui} terminal thành công`];
+            if (kq.loiTerminal.size) phan.push(`${kq.loiTerminal.size} lỗi`);
+            if (kq.loiUser.size)
+                phan.push(`${kq.loiUser.size} chưa tạo được user`);
+
+            ToastNotify(phan.join(', ') + '. Xem cột LỖI.', 'warning');
+        } catch (e) {
+            ToastNotify(GetErrorText(e as HttpErrorResponse), 'error');
+        } finally {
+            this.dangGui.set(false);
+        }
+    }
+
+    private async _guiKetQua() {
         const rawSource = this.dataGrid.dataSource;
 
         if (!(this.dataGrid.visible && rawSource && isArray(rawSource))) return;
