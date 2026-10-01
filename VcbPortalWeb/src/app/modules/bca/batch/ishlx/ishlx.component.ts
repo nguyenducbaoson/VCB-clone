@@ -439,7 +439,13 @@ export class ImportShlxComponent implements AfterViewInit {
      * giây, mà sau một lô có thể vừa tạo hàng chục user với một mật khẩu phải
      * chép lại. Người dùng cần thời gian đọc và tự bấm đóng.
      */
-    private _hienHop(tieuDe: string, dong: string[], mau: string) {
+    private _hienHop(
+        tieuDe: string,
+        dong: string[],
+        // FuseConfirmationConfig khai color là union, không phải string:
+        // 'accent' | 'basic' | 'error' | 'info' | 'primary' | 'success' | 'warn' | 'warning'
+        mau: 'error' | 'success' | 'warning' | 'info'
+    ) {
         this.fuseDialog.open({
             title: tieuDe,
             message: dong.join('<br>'),
