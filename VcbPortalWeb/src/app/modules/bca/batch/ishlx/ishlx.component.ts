@@ -425,12 +425,25 @@ export class ImportShlxComponent implements AfterViewInit {
      * `dong` tính theo DÒNG EXCEL: chỉ số 0 ứng với dòng 2, vì dòng 1 là tiêu đề.
      */
     private _hienLoi(tieuDe: string, dong: { dong: number; lyDo: string }[]) {
+        this._hienHop(
+            tieuDe,
+            dong.map((x) => `[Dòng ${x.dong}]: ${x.lyDo}`),
+            'error'
+        );
+    }
+
+    /**
+     * Hộp thoại chung cho cả thành công lẫn thất bại.
+     *
+     * Thành công cũng dùng hộp thoại chứ không dùng toast: toast tự tắt sau vài
+     * giây, mà sau một lô có thể vừa tạo hàng chục user với một mật khẩu phải
+     * chép lại. Người dùng cần thời gian đọc và tự bấm đóng.
+     */
+    private _hienHop(tieuDe: string, dong: string[], mau: string) {
         this.fuseDialog.open({
             title: tieuDe,
-            message: dong
-                .map((x) => `[Dòng ${x.dong}]: ${x.lyDo}`)
-                .join('<br>'),
-            icon: { color: 'error' },
+            message: dong.join('<br>'),
+            icon: { color: mau },
             actions: { cancel: { show: false }, confirm: { label: 'Xác nhận' } },
         });
     }
@@ -450,7 +463,7 @@ export class ImportShlxComponent implements AfterViewInit {
         const items = this._terminals();
 
         if (!items.length) {
-            ToastNotify('Chưa có dữ liệu. Chọn file rồi bấm Đọc dữ liệu.', 'error');
+            this._hienHop('Chưa có dữ liệu', ['Chọn file Excel rồi bấm Đọc dữ liệu trước.'], 'error');
             return;
         }
 
@@ -473,10 +486,19 @@ export class ImportShlxComponent implements AfterViewInit {
             const kq = await this._shlx.guiLo(items);
 
             if (!kq.loiTerminal.size && !kq.loiUser.size) {
-                ToastNotify(
-                    `Đã cài ${kq.terminalXong}/${kq.daGui} terminal, tạo ${kq.userDaTao} user.` +
-                        (kq.userDaTao ? ` Mật khẩu: ${kq.matKhauBanDau}` : '')
-                );
+                const dong = [`Đã cài ${kq.terminalXong}/${kq.daGui} terminal.`];
+
+                if (kq.userDaTao) {
+                    dong.push(
+                        `Tạo mới ${kq.userDaTao} user portal.`,
+                        `Mật khẩu ban đầu: <b>${kq.matKhauBanDau}</b>`,
+                        'Mật khẩu này giống nhau cho mọi user tạo trong hôm nay — nhắc người dùng đổi ngay lần đăng nhập đầu.'
+                    );
+                } else {
+                    dong.push('Không tạo user nào — file không có cột USER_NAME.');
+                }
+
+                this._hienHop('Cập nhật thành công', dong, 'success');
 
                 this._terminals.set([]);
                 this.dataSource.set([]);
@@ -524,7 +546,7 @@ export class ImportShlxComponent implements AfterViewInit {
             this.loiDong.set(new Map());
             this.dataSource.set(conLai);
         } catch (e) {
-            ToastNotify(GetErrorText(e as HttpErrorResponse), 'error');
+            this._hienHop('Không gửi được', [GetErrorText(e as HttpErrorResponse)], 'error');
         } finally {
             this.dangGui.set(false);
         }
