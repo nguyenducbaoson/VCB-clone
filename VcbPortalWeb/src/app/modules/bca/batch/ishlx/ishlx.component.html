@@ -1,0 +1,67 @@
+<div class="flex-auto overflow-y-auto p-6 sm:px-10">
+  <div class="report-title">Nhập dữ liệu từ file Excel</div>
+  <div class="report-options">
+    <input
+      type="file"
+      hidden
+      accept=".xlsx"
+      (change)="onFileSelected($event)"
+      #f_input
+    />
+
+    <button
+      class="report-button"
+      mat-raised-button
+      color="primary"
+      (click)="f_input.click()"
+    >
+      <mat-icon [svgIcon]="'heroicons_outline_old:upload'"></mat-icon>
+      Chọn file
+    </button>
+
+    <mat-form-field class="mr-5 w-80">
+      <mat-select [formControl]="selectControl">
+        @for (m of worksheet.sheetList(); track m) {
+          <mat-option [value]="m.id">
+            {{ m.name }}
+          </mat-option>
+        }
+      </mat-select></mat-form-field
+    >
+    <button
+      class="report-button"
+      mat-raised-button
+      color="primary"
+      (click)="selectSheet()"
+    >
+      Đọc dữ liệu
+    </button>
+    <button
+      class="report-button"
+      mat-raised-button
+      color="primary"
+      (click)="importData()"
+    >
+      Cập nhật
+    </button>
+    <button
+      class="report-button"
+      mat-raised-button
+      color="primary"
+      (click)="openShlxConfig()"
+    >
+      Cài đặt SHLX
+    </button>
+  </div>
+
+  <dx-data-grid [visible]="!!dataSource().length" [dataSource]="dataSource()">
+    @for (item of columns(); track $index) {
+      <dxi-data-grid-column
+        [dataField]="item.key"
+        [caption]="item.label"
+        [dataType]="item.dataType"
+        [format]="item.format"
+      ></dxi-data-grid-column>
+    }
+  </dx-data-grid>
+</div>
