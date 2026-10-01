@@ -1,4 +1,4 @@
-<div class="import-shlx flex-auto overflow-y-auto p-6 sm:px-10">
+<div class="flex-auto overflow-y-auto p-6 sm:px-10">
   <div class="report-title">Nhập dữ liệu từ file Excel</div>
   <div class="report-options">
     <input
@@ -41,7 +41,7 @@
       mat-raised-button
       color="primary"
       (click)="importData()"
-      [disabled]="dangGui() || (laFileTerminal() && !!loiDong().size)"
+      [disabled]="dangGui()"
     >
       Cập nhật
     </button>
@@ -63,11 +63,7 @@
     </div>
   }
 
-  <dx-data-grid
-    [visible]="!!dataSource().length"
-    [dataSource]="dataSource()"
-    (onRowPrepared)="onRowPrepared($event)"
-  >
+  <dx-data-grid [visible]="!!dataSource().length" [dataSource]="dataSource()">
     @for (item of columns(); track $index) {
       <dxi-data-grid-column
         [dataField]="item.key"
@@ -77,39 +73,4 @@
       ></dxi-data-grid-column>
     }
   </dx-data-grid>
-
-  @if (laFileTerminal()) {
-    @if (loiDong().size) {
-      <div class="px-4 py-3 mt-4 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
-        <span class="font-semibold">{{ loiDong().size }} dòng chưa hợp lệ</span>
-        — các dòng tô đỏ ở trên. Sửa file Excel rồi tải lại; không gửi được khi
-        còn dòng hỏng.
-      </div>
-    } @else if (loiTerminal().size) {
-      <div class="px-4 py-3 mt-4 text-sm rounded bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200">
-        <span class="font-semibold">{{ loiTerminal().size }} terminal chưa cài được</span>
-        — lý do ở cột LỖI. Sửa rồi bấm Cập nhật lại; những terminal đã thành công
-        không còn trong lưới.
-      </div>
-    }
-
-    @if (loiUser().size) {
-      <div class="px-4 py-3 mt-4 text-sm rounded bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-        <span class="font-semibold">
-          {{ loiUser().size }} terminal đã cài xong nhưng CHƯA có user portal
-        </span>
-        — các dòng tô vàng.
-        <span class="font-semibold">Đừng bấm Cập nhật lại</span>: ACQHUB đã ghi
-        những terminal này rồi, gửi lại chỉ nhận "already exist". Tạo user bằng
-        màn hình quản lý người dùng, hoặc báo quản trị.
-      </div>
-    }
-
-    @if (userDaTao()) {
-      <div class="px-4 py-3 mt-4 text-sm rounded bg-gray-50 text-secondary dark:bg-gray-800">
-        Đã tạo {{ userDaTao() }} user. Mật khẩu ban đầu giống nhau cho mọi user
-        tạo trong hôm nay — nhắc người dùng đổi ngay lần đăng nhập đầu.
-      </div>
-    }
-  }
 </div>

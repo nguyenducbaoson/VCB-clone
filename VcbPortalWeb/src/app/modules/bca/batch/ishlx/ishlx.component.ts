@@ -70,26 +70,6 @@ interface ImportShlxResponse {
         MatSelectModule,
         DxDataGridModule,
     ],
-    styles: [
-        `
-        .import-shlx .dx-data-row.shlx-row-loi > td {
-            background-color: rgb(254 226 226);
-            color: rgb(127 29 29);
-        }
-        .dark .import-shlx .dx-data-row.shlx-row-loi > td {
-            background-color: rgb(127 29 29 / 0.35);
-            color: rgb(254 202 202);
-        }
-        .import-shlx .dx-data-row.shlx-row-canh-bao > td {
-            background-color: rgb(254 243 199);
-            color: rgb(120 53 15);
-        }
-        .dark .import-shlx .dx-data-row.shlx-row-canh-bao > td {
-            background-color: rgb(120 53 15 / 0.35);
-            color: rgb(253 230 138);
-        }
-        `,
-    ],
 })
 export class ImportShlxComponent implements AfterViewInit {
     @ViewChild(DxDataGridComponent) dataGrid!: DxDataGridComponent;
@@ -104,7 +84,6 @@ export class ImportShlxComponent implements AfterViewInit {
 
     // ── Phần thêm cho luồng cấu hình terminal ──────────────────────────────
 
-    /** null = chưa đọc file nào. */
     laFileTerminal = signal<boolean>(false);
 
     /** Dữ liệu terminal đã chuyển kiểu, dùng để gửi. dataSource chỉ để hiển thị. */
@@ -113,13 +92,6 @@ export class ImportShlxComponent implements AfterViewInit {
     /** Chỉ số dòng -> lý do. Chặn không cho gửi. */
     loiDong = signal<Map<number, string>>(new Map());
 
-    /** terminalId -> lý do ACQHUB từ chối. Sửa rồi gửi lại được. */
-    loiTerminal = signal<Map<string, string>>(new Map());
-
-    /** terminalId -> đã cài xong nhưng chưa có user. Gửi lại VÔ ÍCH. */
-    loiUser = signal<Map<string, string>>(new Map());
-
-    userDaTao = signal<number>(0);
     dangGui = signal<boolean>(false);
 
     constructor(
@@ -155,9 +127,6 @@ export class ImportShlxComponent implements AfterViewInit {
         this.columns.set([]);
         this._terminals.set([]);
         this.loiDong.set(new Map());
-        this.loiTerminal.set(new Map());
-        this.loiUser.set(new Map());
-        this.userDaTao.set(0);
         this.laFileTerminal.set(false);
 
         const file: File = e.target.files[0];
@@ -435,10 +404,8 @@ export class ImportShlxComponent implements AfterViewInit {
             );
         }
 
-        cols.push({ key: '__loi', label: 'LỖI' });
-
         this.columns.set(cols);
-        this.dataSource.set(this._dungDongHienThi(items));
+        this.dataSource.set(items);
 
         if (daDem.size) {
             ToastNotify(
@@ -448,27 +415,24 @@ export class ImportShlxComponent implements AfterViewInit {
         }
     }
 
-    /** Dòng cho lưới = dữ liệu + cột __loi gộp từ ba nguồn. */
-    private _dungDongHienThi(items: ShlxConfigItem[]): any[] {
-        return items.map((x, i) => ({
-            ...x,
-            __loi:
-                this.loiUser().get(x.terminalId) ??
-                this.loiTerminal().get(x.terminalId) ??
-                this.loiDong().get(i) ??
-                '',
-        }));
-    }
-
-    onRowPrepared(e: any): void {
-        if (e.rowType !== 'data' || !this.laFileTerminal()) return;
-
-        if (this.loiUser().get(e.data?.terminalId)) {
-            e.rowElement.classList.add('shlx-row-canh-bao');
-            return;
-        }
-
-        if (e.data?.__loi) e.rowElement.classList.add('shlx-row-loi');
+    /**
+     * Hộp thoại lỗi — dùng chung một kiểu với luồng kết quả sát hạch.
+     *
+     * Lưới chỉ hiện dữ liệu, không hiện lỗi: một cột LỖI dài sẽ đẩy 11 cột kia
+     * ra khỏi màn hình, mà lỗi là thứ đọc một lần rồi đi sửa file chứ không phải
+     * thứ nhìn suốt.
+     *
+     * `dong` tính theo DÒNG EXCEL: chỉ số 0 ứng với dòng 2, vì dòng 1 là tiêu đề.
+     */
+    private _hienLoi(tieuDe: string, dong: { dong: number; lyDo: string }[]) {
+        this.fuseDialog.open({
+            title: tieuDe,
+            message: dong
+                .map((x) => `[Dòng ${x.dong}]: ${x.lyDo}`)
+                .join('<br>'),
+            icon: { color: 'error' },
+            actions: { cancel: { show: false }, confirm: { label: 'Xác nhận' } },
+        });
     }
 
     // ── Cập nhật: rẽ theo loại file ────────────────────────────────────────
@@ -493,9 +457,12 @@ export class ImportShlxComponent implements AfterViewInit {
         // Chặn khi còn dòng hỏng: ACQHUB ghi cấu hình ở hệ thống ngoài, không
         // rollback được, nên thả lên rồi sửa sau thì đã muộn.
         if (this.loiDong().size) {
-            ToastNotify(
-                `Còn ${this.loiDong().size} dòng chưa hợp lệ. Xem cột LỖI.`,
-                'error'
+            this._hienLoi(
+                `Có ${this.loiDong().size} dòng chưa hợp lệ`,
+                [...this.loiDong()].map(([i, lyDo]) => ({
+                    dong: i + 2,
+                    lyDo,
+                }))
             );
             return;
         }
@@ -504,10 +471,6 @@ export class ImportShlxComponent implements AfterViewInit {
 
         try {
             const kq = await this._shlx.guiLo(items);
-
-            this.userDaTao.set(kq.userDaTao);
-            this.loiTerminal.set(kq.loiTerminal);
-            this.loiUser.set(kq.loiUser);
 
             if (!kq.loiTerminal.size && !kq.loiUser.size) {
                 ToastNotify(
@@ -520,25 +483,46 @@ export class ImportShlxComponent implements AfterViewInit {
                 return;
             }
 
-            // Giữ lại dòng cần nhìn: ACQHUB từ chối (gửi lại được) và đã cài mà
-            // thiếu user (gửi lại KHÔNG được, phải xử tay).
-            const canXem = new Set([
-                ...kq.loiTerminal.keys(),
-                ...kq.loiUser.keys(),
-            ]);
+            // terminalId -> số dòng Excel, để hộp thoại chỉ được đúng dòng cần sửa.
+            const soDong = new Map<string, number>(
+                items.map((x, i) => [x.terminalId, i + 2])
+            );
 
-            const conLai = items.filter((x) => canXem.has(x.terminalId));
+            const lyDo: { dong: number; lyDo: string }[] = [];
+
+            for (const [tid, msg] of kq.loiTerminal) {
+                lyDo.push({
+                    dong: soDong.get(tid) ?? 0,
+                    lyDo: `${tid} — ${msg}`,
+                });
+            }
+
+            // Nhóm này KHÁC HẲN nhóm trên: terminal đã cài xong rồi, gửi lại chỉ
+            // nhận "already exist". Phải nói rõ ra, không thì người dùng bấm lại.
+            for (const [tid, msg] of kq.loiUser) {
+                lyDo.push({
+                    dong: soDong.get(tid) ?? 0,
+                    lyDo: `${tid} — ${msg} ĐỪNG gửi lại, hãy tạo user bằng màn hình quản lý người dùng.`,
+                });
+            }
+
+            lyDo.sort((a, b) => a.dong - b.dong);
+
+            this._hienLoi(
+                `${kq.terminalXong}/${kq.daGui} terminal thành công, ${lyDo.length} dòng có vấn đề`,
+                lyDo
+            );
+
+            // Chỉ giữ lại dòng ACQHUB từ chối — những dòng đó sửa rồi gửi lại
+            // được. Dòng đã cài mà thiếu user thì bỏ khỏi lưới, vì để lại là mời
+            // người dùng bấm Cập nhật lần nữa.
+            const conLai = items.filter((x) =>
+                kq.loiTerminal.has(x.terminalId)
+            );
 
             this._terminals.set(conLai);
             this.loiDong.set(new Map());
-            this.dataSource.set(this._dungDongHienThi(conLai));
-
-            const phan = [`${kq.terminalXong}/${kq.daGui} terminal thành công`];
-            if (kq.loiTerminal.size) phan.push(`${kq.loiTerminal.size} lỗi`);
-            if (kq.loiUser.size)
-                phan.push(`${kq.loiUser.size} chưa tạo được user`);
-
-            ToastNotify(phan.join(', ') + '. Xem cột LỖI.', 'warning');
+            this.dataSource.set(conLai);
         } catch (e) {
             ToastNotify(GetErrorText(e as HttpErrorResponse), 'error');
         } finally {
