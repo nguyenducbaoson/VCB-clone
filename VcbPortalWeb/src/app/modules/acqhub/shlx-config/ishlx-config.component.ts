@@ -119,7 +119,16 @@ export class ShlxConfigComponent {
             province: '',
             branchCode: '',
             userName: '',
-            roleId: 28,
+
+            // PHẢI là null, KHÔNG phải 28.
+            //
+            // Ô "User" lúc mở dialog chưa tích, nên phần user coi như trống. Đặt
+            // sẵn 28 ở đây thì `coDuLieuUser` trong _kiemTraGiaTri thấy roleId
+            // khác null, kết luận "có dữ liệu user mà thiếu USER_NAME", và chặn
+            // MỌI lần gửi đơn — kể cả khi 6 ô terminal đã điền đủ. 28 chỉ được
+            // điền vào lúc tích ô User, trong doiCheDo().
+            roleId: null,
+
             fullName: '',
             email: '',
             mobile: '',
@@ -175,10 +184,12 @@ export class ShlxConfigComponent {
         }
 
         this.formLoi.set([]);
-        this.rows.set([x]);
-        this.rowErrors.set(new Map());
 
-        await this._send([x]);
+        // KHÔNG đổ vào rows(). Lưới là chỗ xem trước file Excel; một dòng gõ tay
+        // thì người dùng đang nhìn thẳng vào nó trong form, dựng thêm một bảng
+        // một dòng ngay dưới chỉ là nói lại thứ họ vừa gõ. Lỗi trả về hiện bằng
+        // chữ ở khối formLoi.
+        await this._send([x], true);
     }
 
     /// Mat khau ban dau backend cap cho user moi. Cong thuc co dinh trong
@@ -243,16 +254,17 @@ export class ShlxConfigComponent {
         // sẽ coi đó là ROLE_ID hợp lệ rồi từ chối cả dòng. Chuyển kiểu ở bước map
         // bên dưới, nơi phân biệt được rỗng với số.
         //
-        // onError: 'skip_cell' chứ KHÔNG phải 'throw' — ô hỏng thì để trống ô đó
-        // nhưng vẫn nạp cả dòng. Có nạp thì mới tô được dòng lỗi trong lưới; 'throw'
-        // làm cả file không vào, người dùng chỉ thấy một hộp thoại rồi lưới trống.
-        const cot = (label: string, batBuoc = true) =>
-            (batBuoc
-                ? ez.preprocess(asText, ez.string().required())
-                : ez.preprocess(asText, ez.string())
-            )
-                .meta({ label })
-                .onError({ type: 'skip_cell' });
+        // KHÔNG dùng .required() ở bất kỳ cột nào — KỂ CẢ 6 cột bắt buộc.
+        //
+        // Đã đo trên `ez` thật: một ô required trượt thì CẢ DÒNG bị loại khỏi
+        // result.data, `onError({type:'skip_cell'})` không giữ nó lại. Nghĩa là
+        // dòng thiếu TERMINAL_ID sẽ biến mất khỏi lưới thay vì hiện đỏ, và người
+        // dùng chỉ thấy "file không có dòng nào" mà không biết dòng nào hỏng.
+        //
+        // Nên để `ez` nạp mọi dòng, còn bắt buộc/không bắt buộc thì
+        // _kiemTraGiaTri quyết — nó đã liệt kê sẵn tên cột thiếu.
+        const cot = (label: string) =>
+            ez.preprocess(asText, ez.string()).meta({ label });
 
         const tableConfig = ezTable([
             cot('TERMINAL_ID'),
@@ -260,25 +272,35 @@ export class ShlxConfigComponent {
             cot('TERMINAL_NAME'),
             cot('MERCHANT_ID'),
             cot('PROVINCE'),
-            ez
-                .preprocess(asBranchCode, ez.string().required())
-                .meta({ label: 'BRANCH_CODE' })
-                .onError({ type: 'skip_cell' }),
+            ez.preprocess(asBranchCode, ez.string()).meta({ label: 'BRANCH_CODE' }),
 
-            // ── 5 cột tạo user portal, KHÔNG bắt buộc ────────────────────────
+            // ── 5 cột tạo user portal ────────────────────────────────────────
             // File không có phần này thì vẫn tải lên được, chỉ là không tạo user.
-            cot('USER_NAME', false),
-            cot('ROLE_ID', false),
-            cot('FULLNAME', false),
-            cot('EMAIL', false),
-            cot('MOBILE', false),
+            cot('USER_NAME'),
+            cot('ROLE_ID'),
+            cot('FULLNAME'),
+            cot('EMAIL'),
+            cot('MOBILE'),
         ])
             .range(2, 10_000)
             .asArray();
 
         const result = this.worksheet.get(sheet.id, tableConfig);
 
-        const items: ShlxConfigItem[] = (result.data as string[][]).map((r) => ({
+        // BỎ DÒNG TRẮNG TRƯỚC KHI LÀM GÌ KHÁC.
+        //
+        // .range(2, 10_000) kéo về đúng 9999 dòng, phần lớn là trống. Trước đây
+        // .required() tự loại chúng; bỏ required đi thì chúng vào hết, và mỗi dòng
+        // trắng ăn một lỗi "Thiếu: TERMINAL_ID, ..." — file một dòng hoá ra hàng
+        // nghìn dòng đỏ.
+        //
+        // Dòng trắng = mọi ô đều rỗng. Dòng chỉ thiếu vài ô thì vẫn giữ, để
+        // _kiemTraGiaTri tô đỏ và nói thiếu cột nào.
+        const duLieu = (result.data as string[][]).filter((r) =>
+            r.some((c) => String(c ?? '').trim() !== '')
+        );
+
+        const items: ShlxConfigItem[] = duLieu.map((r) => ({
             terminalId: r[0],
             ddAccountNumber: r[1],
             terminalName: r[2],
@@ -372,15 +394,15 @@ export class ShlxConfigComponent {
 
         if (thieu.length) vanDe.push('Thiếu: ' + thieu.join(', '));
 
-        // NaN là falsy nên phải so với null, không dùng `!x.roleId`: ô 'hai tam'
-        // CÓ giá trị, chỉ là không phải số.
-        const coDuLieuUser = !!(
-            x.userName ||
-            x.fullName ||
-            x.email ||
-            x.mobile ||
-            x.roleId !== null
-        );
+        // KHÔNG tính roleId vào đây.
+        //
+        // Nó là trường duy nhất có giá trị MẶC ĐỊNH (28), nên nó nói lên ý định
+        // của người viết code chứ không phải của người dùng. Tính nó vào thì form
+        // vừa mở đã bị coi là "có dữ liệu user", và mọi lần gửi đơn đều bị đòi
+        // USER_NAME — kể cả khi ô "User" chưa hề được tích.
+        //
+        // Bốn trường còn lại thì khác: có chữ trong đó nghĩa là ai đó đã gõ vào.
+        const coDuLieuUser = !!(x.userName || x.fullName || x.email || x.mobile);
 
         if (!x.userName) {
             if (batBuocUser) {
@@ -457,10 +479,21 @@ export class ShlxConfigComponent {
     /// form co the con so du tu lan go truoc. Dong chu ngay tren nut noi thang
     /// dieu nay ra, de khong ai bam roi moi biet no gui cai khac.
     async submitBatch(): Promise<void> {
+        // Điều kiện là CÓ FILE hay không, KHÔNG phải lưới có dòng hay không.
+        //
+        // guiMotDong() ghi dòng vừa gửi vào rows(), và khi gửi hỏng thì dòng đó ở
+        // lại để hiện lý do. Lấy rows() làm điều kiện thì lần bấm thứ hai đi nhánh
+        // lô, gửi lại đúng dòng cũ và bỏ qua thứ người dùng vừa sửa trong form —
+        // sửa TERMINAL_ID xong bấm lại vẫn báo trùng y như cũ.
+        if (!this.fileName()) {
+            await this.guiMotDong();
+            return;
+        }
+
         const items = this.rows();
 
         if (!items.length) {
-            await this.guiMotDong();
+            ToastNotify('File không có dòng nào hợp lệ.', 'error');
             return;
         }
 
@@ -477,7 +510,10 @@ export class ShlxConfigComponent {
         await this._send(items);
     }
 
-    private async _send(items: ShlxConfigItem[]): Promise<void> {
+    private async _send(
+        items: ShlxConfigItem[],
+          nhapDon = false
+    ): Promise<void> {
         this.submitting.set(true);
         this.apiErrors.set(new Map());   // ket qua lan truoc khong con y nghia
         this.userErrors.set(new Map());
@@ -509,7 +545,7 @@ export class ShlxConfigComponent {
         }
 
         this.submitting.set(false);
-        this._report(items, results, users);
+        this._report(items, results, users, nhapDon);
     }
 
     // ACQHUB trả HTTP 200 kể cả khi vài terminal hỏng — trạng thái thật nằm ở
@@ -521,7 +557,8 @@ export class ShlxConfigComponent {
     private _report(
         daGui: ShlxConfigItem[],
         results: ShlxConfigResult[],
-        users: ShlxUserResult[]
+        users: ShlxUserResult[],
+        nhapDon = false
     ): void {
         const sent = daGui.length;
 
@@ -542,6 +579,29 @@ export class ShlxConfigComponent {
         );
 
         this.userCreated.set(users.filter((u) => u.created).length);
+
+        // ── Đường nhập đơn: chỉ nói lý do, không dựng lưới ────────────────────
+        if (nhapDon) {
+            const lyDo = [
+                ...failed.map((r) => `[${r.result_code}] ${r.result_message}`),
+                ...userHong.map(
+                    (u) => `Đã cài terminal nhưng CHƯA có user: ${u.message}`
+                ),
+            ];
+
+            if (!lyDo.length) {
+                ToastNotify(
+                    `Đã cài đặt terminal${this.userCreated() ? ' và tạo user' : ''}.`
+                );
+                this._dialogRef.close(true);
+                return;
+            }
+
+            // Giữ nguyên form để người dùng sửa ngay chỗ sai rồi bấm lại.
+            this.formLoi.set(lyDo);
+            ToastNotify(lyDo[0], 'error');
+            return;
+        }
 
         this.apiErrors.set(
             new Map(
