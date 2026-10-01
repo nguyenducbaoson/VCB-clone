@@ -19,6 +19,7 @@ import { ShlxConfigItem } from 'app/interfaces/shlx-config.interface';
 import { ShlxConfigComponent } from 'app/modules/acqhub/shlx-config/ishlx-config.component';
 import { RequestService } from 'app/services/request.service';
 import {
+    docO,
     kiemTraLoShlx,
     laDongTrang,
     laFileCauHinhTerminal,
@@ -317,7 +318,9 @@ export class ImportShlxComponent implements AfterViewInit {
     }
 
     private _docFileTerminal(sheetId: number) {
-        const asText = (v: unknown) => String(v ?? '').trim();
+        // docO, khong phai String(): o Excel co the la hyperlink, rich text hay
+        // cong thuc — String() cua chung ra '[object Object]'.
+        const asText = docO;
 
         // Đệm số 0 cho BRANCH_CODE, nhớ theo CHỈ SỐ DÒNG chứ không theo giá trị:
         // sau khi đệm thì '01400' gõ tay và '01400' vừa đệm giống hệt nhau.

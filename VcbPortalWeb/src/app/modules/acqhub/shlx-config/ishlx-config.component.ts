@@ -23,6 +23,7 @@ import {
     ShlxUserResult,
 } from 'app/interfaces/shlx-config.interface';
 import { RequestService } from 'app/services/request.service';
+import { docO } from 'app/services/shlx-batch.service';
 import { ez, ezTable, injectWorkSheet } from 'app/shared/state/excel';
 import { DxDataGridModule } from 'devextreme-angular';
 import { environment } from 'environments/environment';
@@ -230,7 +231,9 @@ export class ShlxConfigComponent {
 
         if (!sheet) return;
 
-        const asText = (v: unknown) => String(v ?? '').trim();
+        // docO, khong phai String(): o Excel co the la hyperlink, rich text hay
+        // cong thuc — String() cua chung ra '[object Object]'.
+        const asText = docO;
 
         // Đệm số 0 cho BRANCH_CODE, nhưng ghi nhớ theo CHỈ SỐ DÒNG chứ không theo
         // giá trị: sau khi đệm thì '01400' gõ tay và '01400' vừa đệm giống hệt nhau,

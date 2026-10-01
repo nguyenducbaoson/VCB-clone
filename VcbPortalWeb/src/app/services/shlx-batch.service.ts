@@ -221,6 +221,40 @@ export function laFileCauHinhTerminal(docDongDau: () => string[]): boolean {
     return chuan.includes('TERMINAL_ID') && chuan.includes('MERCHANT_ID');
 }
 
+export function docO(v: unknown): string {
+    if (v === null || v === undefined) return '';
+
+    if (typeof v === 'object') {
+        const o = v as any;
+
+        if (typeof o.text === 'string') return o.text.trim();
+
+        if (Array.isArray(o.richText)) {
+            return o.richText
+                .map((r: any) => r?.text ?? '')
+                .join('')
+                .trim();
+        }
+
+        if (o.result !== undefined && o.result !== null) {
+            return String(o.result).trim();
+        }
+
+        // Hyperlink không kèm text: lấy chính địa chỉ, bỏ tiền tố mailto:
+        if (typeof o.hyperlink === 'string') {
+            return o.hyperlink.replace(/^mailto:/i, '').trim();
+        }
+
+        if (v instanceof Date) return String(v);
+
+        // Không nhận ra kiểu gì thì trả rỗng, KHÔNG trả '[object Object]'.
+        // Ô trống thì _kiemTraGiaTri bắt được; '[object Object]' thì không.
+        return '';
+    }
+
+    return String(v).trim();
+}
+
 export function laDongTrang(x: ShlxConfigItem): boolean {
     return !(
         x.terminalId ||
