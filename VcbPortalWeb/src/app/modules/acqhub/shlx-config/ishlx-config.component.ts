@@ -18,6 +18,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { GetErrorText, ToastNotify } from 'app/helpers/common.helper';
 import {
     ShlxConfigItem,
@@ -48,11 +49,19 @@ import { environment } from 'environments/environment';
         MatCheckboxModule,
         MatFormFieldModule,
         MatInputModule,
+        MatSelectModule,
     ],
 })
 export class ShlxConfigComponent {
     private _dialogRef = inject(MatDialogRef<ShlxConfigComponent>);
     private _requestService = inject(RequestService);
+
+    /// Backend chi nhan role SHLX. De dropdown thay vi o so thi khong ai go
+    /// nham 19 — va 19 la tai khoan quan tri.
+    readonly roleShlx = [
+        { id: 28, ten: 'Sát hạch lái xe' },
+        { id: 29, ten: 'Sát hạch lái xe (phụ)' },
+    ];
 
     submitting = signal<boolean>(false);
 

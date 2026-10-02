@@ -69,7 +69,13 @@
 
               <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label> ROLE_ID </mat-label>
-                <input matInput title="Input" type="number" formControlName="roleId" />
+                <mat-select formControlName="roleId">
+                  @for (r of roleShlx; track r.id) {
+                    <mat-option [value]="r.id">
+                      {{ r.id }} — {{ r.ten }}
+                    </mat-option>
+                  }
+                </mat-select>
               </mat-form-field>
 
               <mat-form-field class="w-full md:col-span-2" subscriptSizing="dynamic">
@@ -108,11 +114,17 @@
               Hủy
             </button>
 
+            <!--
+              CHỈ khoá khi đang gửi. KHÔNG khoá theo form.invalid / form.pristine:
+              nút xám mà không nói vì sao là lỗi câm — người dùng điền đủ rồi vẫn
+              bấm không được và không biết thiếu gì. onSubmit() tự kiểm và in lý do
+              ra khối đỏ ngay trên.
+            -->
             <button
               matButton="filled"
               type="button"
               class="w-full"
-              [disabled]="form.invalid || form.pristine || submitting()"
+              [disabled]="submitting()"
               (click)="onSubmit()"
             >
               Lưu

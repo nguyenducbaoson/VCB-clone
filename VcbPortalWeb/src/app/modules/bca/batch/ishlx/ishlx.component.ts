@@ -137,10 +137,12 @@ export class ImportShlxComponent implements AfterViewInit {
 
     openShlxConfig(): void {
         this.dialog.open(ShlxConfigComponent, {
-            panelClass: 'shlx-config-dialog',
             disableClose: true,
             autoFocus: false,
-            maxWidth: '42rem',
+
+            // 42rem bóp lưới 4 cột xuống còn 2 và cắt cụt nhãn — MERCHANT_ID hoá
+            // "MERCHANT_I...". 64rem đủ cho cả bốn cột ở màn hình thường.
+            maxWidth: '64rem',
             width: '94vw',
         });
     }
